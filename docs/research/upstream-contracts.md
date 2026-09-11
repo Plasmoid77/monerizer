@@ -101,7 +101,7 @@ Upstream также выдаёт `peers` как массив строк; v1 их
 
 В snapshot все числовые метрики из таблиц nullable; boolean `connected` nullable. Для v1 не нужны поля MSR, wallet, payout, worker-list или версия P2Pool: их отсутствие является границей функции. `sidechain=null` и `sync_state="unknown"` заданы явно. Версию P2Pool пользователь видит при ручной проверке бинарника/журнала.
 
-Обязательные причины: `SOURCE_UNAVAILABLE`, `SOURCE_STALE`, `SOURCE_INVALID`, `FIELD_INVALID`, `PERMISSION_DENIED`, `UNIT_NOT_FOUND`, `UNIT_FAILED`, `UNIT_MASKED`, `UNIT_NOT_ACTIVE`, `UNIT_DISABLED`, `SOURCE_SESSION_UNKNOWN`, `SOURCE_ID_MISMATCH`, `CLOCK_UNCERTAIN`, `XMRIG_DISCONNECTED`, `HASHRATE_ZERO`, `P2P_NO_CONNECTIONS`, `ZMQ_ACTIVITY_OLD`, `NATIVE_CONFIG_NOT_VALIDATED`, `DEPENDENCIES_DIFFER`. Отсутствующее поле отражается null; `FIELD_INVALID` нужен для неверного типа/значения, не для каждого штатно пропущенного поля.
+Обязательные причины: `SOURCE_UNAVAILABLE`, `SOURCE_STALE`, `SOURCE_INVALID`, `FIELD_INVALID`, `PERMISSION_DENIED`, `UNIT_NOT_FOUND`, `UNIT_FAILED`, `UNIT_MASKED`, `UNIT_NOT_ACTIVE`, `UNIT_DISABLED`, `SOURCE_SESSION_UNKNOWN`, `SOURCE_NOT_CURRENT_SESSION` (доказанное несоответствие uptime), `SOURCE_ID_MISMATCH`, `CLOCK_UNCERTAIN`, `XMRIG_DISCONNECTED`, `HASHRATE_ZERO`, `P2P_NO_CONNECTIONS`, `ZMQ_ACTIVITY_OLD`, `NATIVE_CONFIG_NOT_VALIDATED`, `DEPENDENCIES_DIFFER`. Отсутствующее поле отражается null; `FIELD_INVALID` нужен для неверного типа/значения, не для каждого штатно пропущенного поля.
 
 Doctor JSON: `schema_version`, `collected_at`, `checks[]`, `summary`. Каждый check содержит `code`, `component`, `result` (`pass|warn|fail|skip`), `message`, `remedy` (строка либо null). Summary содержит counts `pass`, `warn`, `fail`, `skip`.
 
