@@ -4,6 +4,7 @@ set -x
 systemctl disable --now monerizer-xmrig.service monerizer-p2pool.service 2>/dev/null
 rm -f /etc/systemd/system/monerizer-p2pool.service /etc/systemd/system/monerizer-xmrig.service
 systemctl daemon-reload
+rm -f /etc/polkit-1/rules.d/50-monerizer.rules
 rm -rf /etc/monerizer /var/lib/monerizer /run/monerizer-p2pool-api
 rm -f /usr/local/bin/p2pool /usr/local/bin/xmrig
 userdel monerizer-p2pool 2>/dev/null; userdel monerizer-xmrig 2>/dev/null

@@ -1,0 +1,13 @@
+// Опциональное правило SEC-03: группа monerizer может start/stop/restart
+// ровно двух units без пароля. Установка: /etc/polkit-1/rules.d/50-monerizer.rules
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.isInGroup("monerizer")) {
+        var unit = action.lookup("unit");
+        var verb = action.lookup("verb");
+        if ((unit == "monerizer-p2pool.service" || unit == "monerizer-xmrig.service") &&
+            (verb == "start" || verb == "stop" || verb == "restart")) {
+            return polkit.Result.YES;
+        }
+    }
+});

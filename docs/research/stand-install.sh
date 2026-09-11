@@ -15,5 +15,6 @@ install -o root -g monerizer -m 0640 "$REPO/examples/p2pool.conf" /etc/monerizer
 install -o root -g monerizer -m 0640 "$REPO/examples/xmrig.json" /etc/monerizer/xmrig.json
 install -o root -g root -m 0644 "$REPO/systemd/monerizer-p2pool.service" /etc/systemd/system/
 install -o root -g root -m 0644 "$REPO/systemd/monerizer-xmrig.service" /etc/systemd/system/
+install -o root -g root -m 0644 "$REPO/examples/polkit/50-monerizer.rules" /etc/polkit-1/rules.d/50-monerizer.rules
 systemctl daemon-reload
 echo "installed; now edit /etc/monerizer/p2pool.conf (wallet, host) and: systemctl start monerizer-p2pool"

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -101,4 +102,49 @@ func (p Props) HasDependency(prop, unit string) bool {
 		}
 	}
 	return false
+}
+
+// Control runs `systemctl VERB -- UNIT...` (SYS-07). It returns systemd's stderr
+// text on failure so the caller can classify the error.
+func Control(ctx context.Context, run Runner, verb string, units ...string) error {
+	args := append([]string{"--no-pager", "--no-ask-password", verb, "--"}, units...)
+	_, stderr, err := run(ctx, "systemctl", args...)
+	if err != nil {
+		return &ControlError{Verb: verb, Err: err, Stderr: strings.TrimSpace(string(stderr))}
+	}
+	return nil
+}
+
+// ControlError wraps a failed systemctl call.
+type ControlError struct {
+	Verb   string
+	Err    error
+	Stderr string
+}
+
+func (e *ControlError) Error() string {
+	if e.Stderr != "" {
+		return "systemctl " + e.Verb + ": " + e.Stderr
+	}
+	return "systemctl " + e.Verb + ": " + e.Err.Error()
+}
+
+func (e *ControlError) Unwrap() error { return e.Err }
+
+// Denied reports whether systemd refused the operation for lack of privileges.
+func (e *ControlError) Denied() bool {
+	s := strings.ToLower(e.Stderr)
+	return strings.Contains(s, "access denied") || strings.Contains(s, "interactive authentication required") || strings.Contains(s, "permission denied")
+}
+
+// JournalArgs builds the journalctl argument vector for `logs` (CLI-06).
+func JournalArgs(units []string, lines int, follow bool) []string {
+	args := []string{"--no-pager", "-o", "short-iso", "-n", strconv.Itoa(lines)}
+	if follow {
+		args = append(args, "-f")
+	}
+	for _, u := range units {
+		args = append(args, "-u", u)
+	}
+	return args
 }

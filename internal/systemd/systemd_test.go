@@ -27,3 +27,33 @@ func TestShow(t *testing.T) {
 		t.Fatalf("args %v", gotArgs)
 	}
 }
+
+func TestControlAndJournalArgs(t *testing.T) {
+	var got []string
+	run := func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
+		got = append([]string{name}, args...)
+		return nil, []byte("Access denied as the requested operation requires interactive authentication."), context.DeadlineExceeded
+	}
+	err := Control(context.Background(), run, "restart", "a.service", "b.service")
+	if err == nil || !err.(*ControlError).Denied() {
+		t.Fatalf("expected denied ControlError, got %v", err)
+	}
+	want := "systemctl --no-pager --no-ask-password restart -- a.service b.service"
+	if s := join(got); s != want {
+		t.Fatalf("args %q", s)
+	}
+	if s := join(JournalArgs([]string{"a.service"}, 50, true)); s != "--no-pager -o short-iso -n 50 -f -u a.service" {
+		t.Fatalf("journal args %q", s)
+	}
+}
+
+func join(a []string) string {
+	s := ""
+	for i, x := range a {
+		if i > 0 {
+			s += " "
+		}
+		s += x
+	}
+	return s
+}

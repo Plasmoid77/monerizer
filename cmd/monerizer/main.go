@@ -21,6 +21,10 @@ var version = "dev"
 
 const usage = `Usage:
   monerizer [--config PATH] status [--json] [--check]
+  monerizer [--config PATH] start   [all|p2pool|xmrig]
+  monerizer [--config PATH] stop    [all|p2pool|xmrig]
+  monerizer [--config PATH] restart [all|p2pool|xmrig]
+  monerizer [--config PATH] logs [--follow] [--lines N] [all|p2pool|xmrig]
   monerizer [--config PATH] config path
   monerizer version
   monerizer --help
@@ -29,6 +33,8 @@ Examples:
   monerizer status
   monerizer --config /etc/monerizer/monerizer.toml status --json
   monerizer status --check && echo mining is healthy
+  sudo monerizer restart xmrig
+  monerizer logs --follow p2pool
 `
 
 // Exit codes (CLI-07).
@@ -73,6 +79,10 @@ func run(args []string) int {
 		return exitUsage
 	case "status":
 		return cmdStatus(*cfgPath, rest[1:])
+	case "start", "stop", "restart":
+		return cmdControl(*cfgPath, rest[0], rest[1:])
+	case "logs":
+		return cmdLogs(*cfgPath, rest[1:])
 	}
 	fmt.Fprintf(os.Stderr, "unknown command %q\n%s", rest[0], usage)
 	return exitUsage
