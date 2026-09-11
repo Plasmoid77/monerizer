@@ -4,7 +4,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func setup(t *testing.T) string {
@@ -57,5 +59,21 @@ func TestReadErrors(t *testing.T) {
 	}
 	if f := Read(dir, "local"); !errors.Is(f.Err, errNotRegular) {
 		t.Errorf("dir: %v", f.Err)
+	}
+	if err := syscall.Mkfifo(filepath.Join(dir, FileNetwork+".fifo"), 0o600); err == nil {
+		done := make(chan File, 1)
+		go func() { done <- Read(dir, FileNetwork+".fifo") }()
+		select {
+		case f := <-done:
+			if !errors.Is(f.Err, errNotRegular) {
+				t.Errorf("fifo: %v", f.Err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("reading a FIFO must not block")
+		}
+	}
+	os.Symlink(filepath.Join(dir, FilePool), filepath.Join(dir, "link"))
+	if f := Read(dir, "link"); f.Err == nil {
+		t.Error("symlink must be rejected")
 	}
 }

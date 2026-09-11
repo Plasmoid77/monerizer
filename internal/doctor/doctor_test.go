@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -9,10 +10,11 @@ import (
 	"github.com/Plasmoid77/monerizer/internal/status"
 )
 
-func snapshot() (*config.Config, *status.Snapshot) {
+func snapshot(t *testing.T) (*config.Config, *status.Snapshot) {
 	cfg := &config.Config{}
 	cfg.Services.P2Pool, cfg.Services.XMRig = "p.service", "x.service"
-	cfg.P2Pool.DataAPIDir = "/run/api"
+	cfg.P2Pool.DataAPIDir = t.TempDir()
+	rd, _ := filepath.Rel("/run", cfg.P2Pool.DataAPIDir)
 	cfg.XMRig.ExpectedID = "id"
 	ok := status.Source{State: status.StateOK, AgeSeconds: f(10)}
 	s := &status.Snapshot{
@@ -22,7 +24,7 @@ func snapshot() (*config.Config, *status.Snapshot) {
 			status.SrcP2PoolP2P: ok, status.SrcP2PoolStratum: ok, status.SrcP2PoolNetwork: ok, status.SrcP2PoolPool: ok,
 		},
 		Props: map[string]map[string]string{
-			"p.service": {"RuntimeDirectory": "api", "RuntimeDirectoryPreserve": "no"},
+			"p.service": {"RuntimeDirectory": rd, "RuntimeDirectoryPreserve": "no"},
 			"x.service": {"After": "p.service network.target"},
 		},
 	}
@@ -42,7 +44,7 @@ func run(ctx context.Context, name string, args ...string) ([]byte, []byte, erro
 }
 
 func TestAllPass(t *testing.T) {
-	cfg, s := snapshot()
+	cfg, s := snapshot(t)
 	rep := Run(context.Background(), cfg, s, run)
 	if rep.Summary[Fail] != 0 || rep.Summary[Warn] != 0 || rep.Summary[Pass] != 26 || rep.Summary[Skip] != 3 {
 		t.Fatalf("summary %v checks %+v", rep.Summary, rep.Checks)
@@ -50,7 +52,7 @@ func TestAllPass(t *testing.T) {
 }
 
 func TestFailures(t *testing.T) {
-	cfg, s := snapshot()
+	cfg, s := snapshot(t)
 	s.Services.P2Pool.LoadState, s.Services.P2Pool.ActiveState = "not-found", "inactive"
 	s.Services.XMRig.ActiveState = "failed"
 	s.Props["x.service"]["Requires"] = "p.service"

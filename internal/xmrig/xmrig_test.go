@@ -47,7 +47,7 @@ func TestParseTolerant(t *testing.T) {
 	if s.Hashrate60s != nil || s.Rejected != nil || *s.ConnectionUptimeMs != 7 || *s.Accepted != 5 {
 		t.Fatalf("unexpected %+v", s)
 	}
-	for _, bad := range []string{`[]`, `{`, `null`, ``} {
+	for _, bad := range []string{`[]`, `{`, `null`, ``, `{"id":"x"} trailing`} {
 		if _, err := Parse([]byte(bad)); err == nil {
 			t.Errorf("%q: expected error", bad)
 		}

@@ -64,10 +64,9 @@ type Service struct {
 	RestartCount   *int64   `json:"restart_count"`
 	LastExitStatus *int64   `json:"last_exit_status"`
 	Result         string   `json:"result"`
-	// startMonotonic is ExecMainStartTimestampMonotonic in seconds; internal.
-	startMonotonic *float64
-	// runtimeDir is the RuntimeDirectory property; internal.
-	runtimeDir string
+	// runtimeDir/runtimePreserve mirror RuntimeDirectory[Preserve]; internal.
+	runtimeDir      string
+	runtimePreserve string
 }
 
 // Source describes one data source per DATA-06.

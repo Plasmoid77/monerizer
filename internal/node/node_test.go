@@ -59,6 +59,10 @@ func TestRewrite(t *testing.T) {
 	if d := Diff([]byte(in), []byte(out)); len(d) != 5 {
 		t.Fatalf("diff %v", d)
 	}
+	dup := "host = a\nhost = b\nrpc-port = 1\nzmq-port = 2\nrpc-port = 3\n"
+	if got := string(Rewrite([]byte(dup), Candidate{Host: "c", RPC: 4, ZMQ: 5})); got != "host = c\nrpc-port = 4\nzmq-port = 5\n" {
+		t.Fatalf("duplicates must be dropped, got %q", got)
+	}
 }
 
 func TestWriteAtomic(t *testing.T) {

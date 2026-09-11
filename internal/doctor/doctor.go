@@ -148,12 +148,9 @@ func (r *runner) p2poolChecks() {
 		return
 	}
 	p2p := s.Sources[status.SrcP2PoolP2P]
-	switch p2p.State {
-	case status.StatePermissionDenied:
-		r.add("DATA_API_DIR", "p2pool", Fail, "cannot read "+r.cfg.P2Pool.DataAPIDir+": permission denied", "add the operator to the group owning the Data API directory (log in again afterwards)")
-	case status.StateUnavailable:
-		r.add("DATA_API_DIR", "p2pool", Fail, "local/p2p is missing in "+r.cfg.P2Pool.DataAPIDir+": "+p2p.Message, "check data-api and local-api in p2pool.conf and wait ~60 s after start")
-	default:
+	if _, err := os.ReadDir(r.cfg.P2Pool.DataAPIDir); err != nil {
+		r.add("DATA_API_DIR", "p2pool", Fail, "cannot read "+r.cfg.P2Pool.DataAPIDir+": "+err.Error(), "check data-api in p2pool.conf; add the operator to the group owning the directory (log in again afterwards)")
+	} else {
 		r.add("DATA_API_DIR", "p2pool", Pass, r.cfg.P2Pool.DataAPIDir+" is readable", "")
 	}
 	switch {
@@ -164,7 +161,7 @@ func (r *runner) p2poolChecks() {
 	case p2p.State == status.StateStale:
 		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p is stale (SOURCE_STALE)", "monerizer logs p2pool")
 	default:
-		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p: "+p2p.ErrorCode+" "+p2p.Message, "monerizer logs p2pool")
+		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p: "+p2p.ErrorCode+" "+p2p.Message, "the file appears ~60 s after start; check local-api in p2pool.conf; monerizer logs p2pool")
 	}
 	var bad []string
 	for _, n := range []string{status.SrcP2PoolStratum, status.SrcP2PoolNetwork, status.SrcP2PoolPool} {
@@ -261,9 +258,9 @@ func (r *runner) localChecks(ctx context.Context) {
 	}
 	jctx, cancel := context.WithTimeout(ctx, status.ReadTimeout)
 	defer cancel()
-	_, stderr, err := r.run(jctx, "journalctl", "--no-pager", "-q", "-n", "1", "-u", r.cfg.Services.P2Pool)
-	if err != nil {
-		r.add("JOURNAL_ACCESS", "monerizer", Warn, "journalctl failed: "+strings.TrimSpace(string(stderr)), "add the operator to group systemd-journal to read service logs (SEC-04: not a mining fault)")
+	_, stderr, err := r.run(jctx, "journalctl", "--no-pager", "-n", "1", "-u", r.cfg.Services.P2Pool)
+	if err != nil || strings.Contains(string(stderr), "not seeing messages") {
+		r.add("JOURNAL_ACCESS", "monerizer", Warn, "journalctl: "+strings.TrimSpace(string(stderr)), "add the operator to group systemd-journal to read service logs (SEC-04: not a mining fault)")
 	} else {
 		r.add("JOURNAL_ACCESS", "monerizer", Pass, "journalctl can read the unit journal", "")
 	}

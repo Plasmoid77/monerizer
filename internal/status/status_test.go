@@ -37,6 +37,7 @@ NRestarts=0
 InvocationID=aaa
 ExecMainStartTimestampMonotonic=1661000000
 RuntimeDirectory=monerizer-p2pool-api
+RuntimeDirectoryPreserve=no
 
 Id=monerizer-xmrig.service
 LoadState=loaded

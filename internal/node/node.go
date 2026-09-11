@@ -94,7 +94,11 @@ func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	if resp.StatusCode != http.StatusOK {
 		res.Error = fmt.Sprintf("HTTP %d", resp.StatusCode)
 		return res
 	}
@@ -113,8 +117,10 @@ func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
 			res.Synchronized = &b
 		}
 	}
-	d := net.Dialer{Timeout: ProbeTimeout}
-	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(c.Host, strconv.Itoa(c.ZMQ)))
+	zctx, zcancel := context.WithTimeout(context.Background(), ProbeTimeout) // own budget, NODE-02
+	defer zcancel()
+	d := net.Dialer{}
+	conn, err := d.DialContext(zctx, "tcp", net.JoinHostPort(c.Host, strconv.Itoa(c.ZMQ)))
 	open := err == nil
 	if open {
 		conn.Close()
@@ -198,7 +204,8 @@ func splitKV(line string) (string, string, bool) {
 }
 
 // Rewrite replaces exactly the three node keys, keeping every other byte (NODE-03).
-// Missing keys are appended at the end.
+// Missing keys are appended at the end; repeated node keys (P2Pool treats a
+// second host line as a failover host) are dropped so the switch is complete.
 func Rewrite(data []byte, c Candidate) []byte {
 	values := map[string]string{"host": c.Host, "rpc-port": strconv.Itoa(c.RPC), "zmq-port": strconv.Itoa(c.ZMQ)}
 	seen := map[string]bool{}
@@ -206,7 +213,10 @@ func Rewrite(data []byte, c Candidate) []byte {
 	var out strings.Builder
 	for _, line := range lines {
 		k, _, ok := splitKV(line)
-		if ok && values[k] != "" && !seen[k] {
+		if ok && values[k] != "" {
+			if seen[k] {
+				continue
+			}
 			seen[k] = true
 			out.WriteString(k + " = " + values[k])
 			if strings.HasSuffix(line, "\n") {
@@ -231,6 +241,10 @@ func Rewrite(data []byte, c Candidate) []byte {
 // WriteAtomic writes data next to path and renames it over path, preserving
 // the original owner and mode.
 func WriteAtomic(path string, data []byte) error {
+	path, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return err
+	}
 	st, err := os.Stat(path)
 	if err != nil {
 		return err

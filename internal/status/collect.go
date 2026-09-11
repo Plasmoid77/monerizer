@@ -107,14 +107,15 @@ func (c *Collector) applySystemd(s *Snapshot, props map[string]systemd.Props, er
 
 func serviceFrom(unit string, p systemd.Props, mono float64) Service {
 	sv := Service{
-		Unit:         unit,
-		LoadState:    p["LoadState"],
-		ActiveState:  p["ActiveState"],
-		SubState:     p["SubState"],
-		EnabledState: p["UnitFileState"],
-		InvocationID: p["InvocationID"],
-		Result:       p["Result"],
-		runtimeDir:   p["RuntimeDirectory"],
+		Unit:            unit,
+		LoadState:       p["LoadState"],
+		ActiveState:     p["ActiveState"],
+		SubState:        p["SubState"],
+		EnabledState:    p["UnitFileState"],
+		InvocationID:    p["InvocationID"],
+		Result:          p["Result"],
+		runtimeDir:      p["RuntimeDirectory"],
+		runtimePreserve: p["RuntimeDirectoryPreserve"],
 	}
 	sv.RestartCount = parseInt(p["NRestarts"])
 	sv.LastExitStatus = parseInt(p["ExecMainStatus"])
@@ -123,7 +124,6 @@ func serviceFrom(unit string, p systemd.Props, mono float64) Service {
 	}
 	if us := parseInt(p["ExecMainStartTimestampMonotonic"]); us != nil && *us > 0 && sv.ActiveState == "active" {
 		st := float64(*us) / 1e6
-		sv.startMonotonic = &st
 		if mono > st {
 			up := mono - st
 			sv.UptimeSeconds = &up
@@ -150,7 +150,7 @@ func (c *Collector) applyXMRig(s *Snapshot, sum *xmrig.Summary, err error, now t
 	}
 	src.State, src.LastSuccessAt = StateOK, tp(now)
 	m := &s.XMRig
-	m.Version, m.ID, m.UptimeSeconds = sum.Version, sum.ID, sum.UptimeSeconds
+	m.Version, m.ID, m.UptimeSeconds = sanitize(sum.Version), sanitize(sum.ID), sum.UptimeSeconds
 	m.Hashrate10s, m.Hashrate60s, m.Hashrate15m = sum.Hashrate10s, sum.Hashrate60s, sum.Hashrate15m
 	m.HugepagesAllocated, m.HugepagesTotal = sum.HugepagesAllocated, sum.HugepagesTotal
 	if sum.HugepagesAllocated != nil && sum.HugepagesTotal != nil && *sum.HugepagesTotal > 0 {
@@ -194,7 +194,7 @@ func (c *Collector) applyP2Pool(s *Snapshot, files map[string]p2pool.File, now t
 			m.ZMQAgeSeconds = &age
 		}
 		// DATA-08: files must belong to the running process.
-		if p2p.State == StateOK {
+		if p2p.State == StateOK && p2p.ErrorCode == "" {
 			p2p.ErrorCode = c.p2poolSession(s, m.UptimeSeconds, p2p.AgeSeconds)
 		}
 	}
@@ -275,7 +275,7 @@ func (c *Collector) p2poolSession(s *Snapshot, fileUptime *int64, fileAge *float
 		return "SOURCE_SESSION_UNKNOWN"
 	}
 	// The shipped unit owns the directory: systemd removes it on every stop.
-	linked := svc.runtimeDir != "" && filepath.Clean(c.Cfg.P2Pool.DataAPIDir) == filepath.Join("/run", svc.runtimeDir)
+	linked := svc.runtimeDir != "" && svc.runtimePreserve == "no" && filepath.Clean(c.Cfg.P2Pool.DataAPIDir) == filepath.Join("/run", svc.runtimeDir)
 	if fileUptime == nil || fileAge == nil {
 		if linked {
 			return ""

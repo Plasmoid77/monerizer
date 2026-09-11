@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strconv"
 )
@@ -22,6 +23,9 @@ func Decode(data []byte) (Object, error) {
 	var v any
 	if err := dec.Decode(&v); err != nil {
 		return nil, err
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, errors.New("trailing data after JSON object")
 	}
 	o, ok := v.(map[string]any)
 	if !ok {
@@ -77,8 +81,8 @@ func (o Object) Float(path ...string) (float64, *FieldError) {
 		return 0, &FieldError{Path: join(path), Err: errors.New("not a number")}
 	}
 	f, err := strconv.ParseFloat(string(n), 64)
-	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
-		return 0, &FieldError{Path: join(path), Err: errors.New("not a finite number")}
+	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) || f < 0 {
+		return 0, &FieldError{Path: join(path), Err: errors.New("not a non-negative finite number")}
 	}
 	return f, nil
 }

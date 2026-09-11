@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/Plasmoid77/monerizer/internal/jsonx"
@@ -56,7 +57,8 @@ var (
 func readOnce(dir, name string) File {
 	f := File{Name: name}
 	path := filepath.Join(dir, filepath.FromSlash(name))
-	fh, err := os.Open(path)
+	// O_NONBLOCK: never block on a FIFO; O_NOFOLLOW: only real files (DATA-02).
+	fh, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			err = ErrMissing
@@ -79,9 +81,13 @@ func readOnce(dir, name string) File {
 		return f
 	}
 	f.ModTime = st.ModTime()
-	data, err := readAll(fh, st.Size())
+	data, err := io.ReadAll(io.LimitReader(fh, maxFile+1))
 	if err != nil {
 		f.Err = err
+		return f
+	}
+	if len(data) > maxFile {
+		f.Err = errTooLarge
 		return f
 	}
 	if len(data) == 0 {
@@ -90,18 +96,6 @@ func readOnce(dir, name string) File {
 	}
 	f.Object, f.Err = jsonx.Decode(data)
 	return f
-}
-
-func readAll(fh *os.File, size int64) ([]byte, error) {
-	buf := make([]byte, size+1)
-	n, err := fh.Read(buf)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-	if n > maxFile {
-		return nil, errTooLarge
-	}
-	return buf[:n], nil
 }
 
 // ReadDir reads all v1 files. The result is keyed by file name.

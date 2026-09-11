@@ -87,6 +87,15 @@ func (m Model) tick() tea.Cmd {
 	return tea.Tick(time.Duration(m.cfg.UI.RefreshMs)*time.Millisecond, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
+// refresh starts a collection unless one is already running (DATA-01).
+func (m *Model) refresh() tea.Cmd {
+	if m.collecting {
+		return nil
+	}
+	m.collecting = true
+	return m.collect()
+}
+
 func (m Model) collect() tea.Cmd {
 	c := m.collector
 	return func() tea.Msg { return snapshotMsg(c.Collect(context.Background())) }
@@ -133,11 +142,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case opMsg:
 		m.busy = false
 		m.opResult = msg.text
-		m.collecting = true
-		return m, m.collect()
+		return m, m.refresh()
 	case logsMsg:
-		m.collecting = true
-		return m, m.collect()
+		signal.Reset(os.Interrupt)
+		return m, m.refresh()
 	case tea.KeyPressMsg:
 		return m.key(msg.String())
 	}
@@ -223,10 +231,10 @@ func (m Model) launch() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) logs() tea.Cmd {
-	// Ctrl-C must end journalctl only: it shares our process group in cooked mode.
-	signal.Ignore(os.Interrupt)
+	// Ctrl-C must end journalctl only. A Go handler (not SIG_IGN, which exec
+	// would inherit) keeps this process alive; the child gets the default action.
+	signal.Notify(make(chan os.Signal, 1), os.Interrupt)
 	cmd := exec.Command("journalctl", systemd.JournalArgs(m.units(), 200, true)...)
-	cmd.Env = append(os.Environ(), "SYSTEMD_PAGER=")
 	return tea.ExecProcess(cmd, func(err error) tea.Msg { return logsMsg{err: err} })
 }
 

@@ -57,7 +57,10 @@ func cmdControl(cfgPath, verb string, args []string) int {
 	cctx, cancel := context.WithTimeout(ctx, controlDeadline)
 	if verb != "stop" {
 		// A unit stuck in start-limit-hit refuses a plain start until reset-failed (CLI-04).
-		if props, perr := systemd.Show(cctx, systemd.ExecRunner, units...); perr == nil {
+		sctx, scancel := context.WithTimeout(ctx, verifyDeadline)
+		props, perr := systemd.Show(sctx, systemd.ExecRunner, units...)
+		scancel()
+		if perr == nil {
 			for _, u := range units {
 				if props[u]["Result"] == "start-limit-hit" {
 					if rerr := systemd.Control(cctx, systemd.ExecRunner, "reset-failed", u); rerr != nil {
@@ -143,17 +146,15 @@ func cmdLogs(cfgPath string, args []string) int {
 	}
 	cmd := exec.Command("journalctl", systemd.JournalArgs(units, *lines, *follow)...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	cmd.Env = append(os.Environ(), "SYSTEMD_PAGER=")
-	// Ctrl-C reaches journalctl through the shared process group; it is the normal way to leave --follow.
-	signal.Ignore(os.Interrupt)
+	// Ctrl-C is the normal way to leave --follow: journalctl gets the default
+	// action, this process only observes the signal (SIG_IGN would be inherited).
+	signal.Notify(make(chan os.Signal, 1), os.Interrupt)
+	defer signal.Reset(os.Interrupt)
 	if err := cmd.Run(); err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
 			if ee.ExitCode() == -1 || (*follow && ee.ExitCode() != 0) {
 				return exitOK // terminated by a signal
-			}
-			if ee.ExitCode() == 1 {
-				return exitDenied
 			}
 			return exitCheck
 		}
