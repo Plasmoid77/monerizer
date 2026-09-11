@@ -191,7 +191,7 @@ func TestHealthRules(t *testing.T) {
 			if s.Health.Level != tc.level {
 				t.Fatalf("level %s, want %s; issues %+v; sources %+v", s.Health.Level, tc.level, s.Health.Issues, s.Sources)
 			}
-			if tc.code != "" && !s.hasIssue(tc.code) && !hasSourceCode(s, tc.code) {
+			if tc.code != "" && !s.HasIssue(tc.code) && !hasSourceCode(s, tc.code) {
 				t.Fatalf("expected code %s; issues %+v; sources %+v", tc.code, s.Health.Issues, s.Sources)
 			}
 		})

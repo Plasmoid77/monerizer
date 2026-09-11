@@ -25,6 +25,7 @@ const usage = `Usage:
   monerizer [--config PATH] stop    [all|p2pool|xmrig]
   monerizer [--config PATH] restart [all|p2pool|xmrig]
   monerizer [--config PATH] logs [--follow] [--lines N] [all|p2pool|xmrig]
+  monerizer [--config PATH] doctor [--json]
   monerizer [--config PATH] config path
   monerizer version
   monerizer --help
@@ -83,6 +84,8 @@ func run(args []string) int {
 		return cmdControl(*cfgPath, rest[0], rest[1:])
 	case "logs":
 		return cmdLogs(*cfgPath, rest[1:])
+	case "doctor":
+		return cmdDoctor(*cfgPath, rest[1:])
 	}
 	fmt.Fprintf(os.Stderr, "unknown command %q\n%s", rest[0], usage)
 	return exitUsage

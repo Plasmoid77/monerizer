@@ -94,6 +94,10 @@ func (c *Collector) applySystemd(s *Snapshot, props map[string]systemd.Props, er
 		s.Sources[SrcSystemdXMRig] = src
 		return
 	}
+	s.Props = map[string]map[string]string{}
+	for u, p := range props {
+		s.Props[u] = p
+	}
 	s.Services.P2Pool = serviceFrom(c.Cfg.Services.P2Pool, props[c.Cfg.Services.P2Pool], mono)
 	s.Services.XMRig = serviceFrom(c.Cfg.Services.XMRig, props[c.Cfg.Services.XMRig], mono)
 	ok := Source{State: StateOK, ObservedAt: tp(now), LastSuccessAt: tp(now)}

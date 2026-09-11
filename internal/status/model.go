@@ -43,6 +43,8 @@ type Snapshot struct {
 	XMRig                XMRigMetrics      `json:"xmrig"`
 	P2Pool               P2PoolMetrics     `json:"p2pool"`
 	Health               Health            `json:"health"`
+	// Props keeps the raw systemctl properties for doctor; not serialized.
+	Props map[string]map[string]string `json:"-"`
 }
 
 type Services struct {
@@ -140,7 +142,8 @@ func (s *Snapshot) addIssue(code, severity, component, source, msg string) {
 	s.Health.Issues = append(s.Health.Issues, Issue{Code: code, Severity: severity, Component: component, Message: msg, Source: source})
 }
 
-func (s *Snapshot) hasIssue(code string) bool {
+// HasIssue reports whether an issue with code was recorded.
+func (s *Snapshot) HasIssue(code string) bool {
 	for _, i := range s.Health.Issues {
 		if i.Code == code {
 			return true
