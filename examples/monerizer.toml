@@ -1,0 +1,18 @@
+schema_version = 1
+
+[services]
+p2pool = "monerizer-p2pool.service"
+xmrig = "monerizer-xmrig.service"
+
+[p2pool]
+data_api_dir = "/run/monerizer-p2pool-api"
+
+[xmrig]
+api_url = "http://127.0.0.1:18088"
+expected_id = "monerizer-xmrig"
+# token_file = "/etc/monerizer/xmrig-api.token"   # только если http.access-token задан в xmrig.json
+# params_file = "/etc/monerizer/p2pool.conf"      # нужен командам node
+# nodes_file = "/etc/monerizer/nodes.txt"
+
+[ui]
+refresh_ms = 1000

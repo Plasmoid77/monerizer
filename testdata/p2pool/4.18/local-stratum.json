@@ -1,0 +1,19 @@
+{
+  "hashrate_15m": 390,
+  "hashrate_1h": 390,
+  "hashrate_24h": 390,
+  "total_hashes": 125002,
+  "total_stratum_shares": 1,
+  "last_share_found_time": 0,
+  "shares_found": 0,
+  "shares_failed": 0,
+  "average_effort": 0.0,
+  "current_effort": 0.05,
+  "connections": 1,
+  "incoming_connections": 1,
+  "block_reward_share_percent": 0.0,
+  "wallet": "4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "workers": [
+    "127.0.0.1:42516,92,125002,4166,x"
+  ]
+}

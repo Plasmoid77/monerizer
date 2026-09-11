@@ -1,0 +1,145 @@
+{
+  "id": "monerizer-xmrig",
+  "worker_id": "Thinkpad-T480s",
+  "uptime": 109,
+  "restricted": true,
+  "resources": {
+    "memory": {
+      "free": 1673728000,
+      "total": 16494579712,
+      "resident_set_memory": 2461700096
+    },
+    "load_average": [
+      6.42,
+      4.79,
+      3.01
+    ],
+    "hardware_concurrency": 8
+  },
+  "features": [
+    "api",
+    "asm",
+    "http",
+    "hwloc",
+    "tls"
+  ],
+  "results": {
+    "diff_current": 125002,
+    "shares_good": 1,
+    "shares_total": 1,
+    "avg_time": 109,
+    "avg_time_ms": 109920,
+    "hashes_total": 125002,
+    "best": [
+      1239649,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "algo": "rx/0",
+  "connection": {
+    "pool": "127.0.0.1:3333",
+    "ip": "127.0.0.1",
+    "uptime": 109,
+    "uptime_ms": 109920,
+    "ping": 1,
+    "failures": 0,
+    "tls": null,
+    "tls-fingerprint": null,
+    "algo": "rx/0",
+    "diff": 125002,
+    "accepted": 1,
+    "rejected": 0,
+    "avg_time": 109,
+    "avg_time_ms": 109920,
+    "hashes_total": 125002
+  },
+  "version": "6.26.0",
+  "kind": "miner",
+  "ua": "XMRig/6.26.0 (Linux x86_64) libuv/1.51.0 gcc/13.2.1",
+  "cpu": {
+    "brand": "Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz",
+    "family": 6,
+    "model": 142,
+    "stepping": 10,
+    "proc_info": 526058,
+    "aes": true,
+    "avx2": true,
+    "x64": true,
+    "64_bit": true,
+    "l2": 1048576,
+    "l3": 8388608,
+    "cores": 4,
+    "threads": 8,
+    "packages": 1,
+    "nodes": 1,
+    "backend": "hwloc/2.12.1",
+    "msr": "intel",
+    "assembly": "intel",
+    "arch": "x86_64",
+    "flags": [
+      "aes",
+      "avx",
+      "avx2",
+      "bmi2",
+      "osxsave",
+      "pdpe1gb",
+      "sse2",
+      "ssse3",
+      "sse4.1",
+      "popcnt"
+    ]
+  },
+  "donate_level": 1,
+  "paused": false,
+  "algorithms": [
+    "cn/1",
+    "cn/2",
+    "cn/r",
+    "cn/fast",
+    "cn/half",
+    "cn/xao",
+    "cn/rto",
+    "cn/rwz",
+    "cn/zls",
+    "cn/double",
+    "cn/ccx",
+    "cn-lite/1",
+    "cn-heavy/0",
+    "cn-heavy/tube",
+    "cn-heavy/xhv",
+    "cn-pico",
+    "cn-pico/tlo",
+    "cn/upx2",
+    "rx/0",
+    "rx/2",
+    "rx/wow",
+    "rx/arq",
+    "rx/graft",
+    "rx/sfx",
+    "rx/yada",
+    "argon2/chukwa",
+    "argon2/chukwav2",
+    "argon2/ninja",
+    "ghostrider"
+  ],
+  "hashrate": {
+    "total": [
+      901.25,
+      885.78,
+      null
+    ],
+    "highest": 924.52
+  },
+  "hugepages": [
+    0,
+    1172
+  ]
+}

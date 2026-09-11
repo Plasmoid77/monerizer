@@ -1,0 +1,4 @@
+/monerizer
+/dist/
+*.token
+/testdata/**/raw/

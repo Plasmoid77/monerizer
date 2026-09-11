@@ -1,0 +1,31 @@
+[Unit]
+Description=XMRig (Monerizer)
+Documentation=https://xmrig.com/docs/miner
+After=network-online.target monerizer-p2pool.service
+Wants=network-online.target
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=monerizer-xmrig
+Group=monerizer
+ExecStart=/usr/local/bin/xmrig --config /etc/monerizer/xmrig.json
+WorkingDirectory=/var/lib/monerizer/xmrig
+StateDirectory=monerizer/xmrig
+StateDirectoryMode=0700
+UMask=0027
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillMode=control-group
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

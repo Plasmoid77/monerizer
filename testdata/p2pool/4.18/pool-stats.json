@@ -1,0 +1,17 @@
+{
+  "pool_list": [
+    "pplns"
+  ],
+  "pool_statistics": {
+    "hashRate": 24894687,
+    "miners": 918,
+    "totalHashes": 2442481695896174,
+    "lastBlockFoundTime": 0,
+    "lastBlockFound": 0,
+    "totalBlocksFound": 0,
+    "pplnsWeight": 541498767328,
+    "pplnsWindowSize": 2160,
+    "sidechainDifficulty": 248946872,
+    "sidechainHeight": 14752968
+  }
+}

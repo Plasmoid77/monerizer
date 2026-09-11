@@ -1,0 +1,65 @@
+[
+  {
+    "type": "cpu",
+    "enabled": true,
+    "algo": "rx/0",
+    "profile": "rx",
+    "hw-aes": true,
+    "priority": -1,
+    "msr": false,
+    "asm": "intel",
+    "argon2-impl": "AVX2",
+    "hugepages": [
+      0,
+      1172
+    ],
+    "memory": 8388608,
+    "hashrate": [
+      901.25,
+      885.78,
+      null
+    ],
+    "threads": [
+      {
+        "intensity": 1,
+        "affinity": 0,
+        "av": 1,
+        "hashrate": [
+          229.88,
+          227.26,
+          null
+        ]
+      },
+      {
+        "intensity": 1,
+        "affinity": 1,
+        "av": 1,
+        "hashrate": [
+          211.79,
+          206.99,
+          null
+        ]
+      },
+      {
+        "intensity": 1,
+        "affinity": 2,
+        "av": 1,
+        "hashrate": [
+          231.35,
+          227.18,
+          null
+        ]
+      },
+      {
+        "intensity": 1,
+        "affinity": 3,
+        "av": 1,
+        "hashrate": [
+          228.2,
+          224.33,
+          null
+        ]
+      }
+    ]
+  }
+]

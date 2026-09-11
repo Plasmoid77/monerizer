@@ -1,0 +1,10 @@
+{
+    "autosave": false,
+    "watch": false,
+    "colors": false,
+    "api": { "id": "monerizer-xmrig", "worker-id": null },
+    "http": { "enabled": true, "host": "127.0.0.1", "port": 18088, "access-token": null, "restricted": true },
+    "cpu": { "enabled": true, "huge-pages": true, "max-threads-hint": 100 },
+    "pools": [ { "url": "127.0.0.1:3333", "user": "x", "pass": "x", "keepalive": true, "tls": false } ],
+    "print-time": 60
+}

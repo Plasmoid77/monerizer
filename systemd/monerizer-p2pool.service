@@ -1,0 +1,34 @@
+[Unit]
+Description=P2Pool (Monerizer)
+Documentation=https://github.com/SChernykh/p2pool/blob/master/docs/COMMAND_LINE.MD
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=monerizer-p2pool
+Group=monerizer
+ExecStart=/usr/local/bin/p2pool --params-file /etc/monerizer/p2pool.conf
+WorkingDirectory=/var/lib/monerizer/p2pool
+StateDirectory=monerizer/p2pool
+StateDirectoryMode=0700
+RuntimeDirectory=monerizer-p2pool-api
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=no
+UMask=0027
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillMode=control-group
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
