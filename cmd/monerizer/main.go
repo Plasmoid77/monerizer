@@ -21,6 +21,7 @@ var version = "dev"
 
 const usage = `Usage:
   monerizer [--config PATH] status [--json] [--check]
+  monerizer [--config PATH] tui
   monerizer [--config PATH] start   [all|p2pool|xmrig]
   monerizer [--config PATH] stop    [all|p2pool|xmrig]
   monerizer [--config PATH] restart [all|p2pool|xmrig]
@@ -90,6 +91,8 @@ func run(args []string) int {
 		return cmdDoctor(*cfgPath, rest[1:])
 	case "node":
 		return cmdNode(*cfgPath, rest[1:])
+	case "tui":
+		return cmdTUI(*cfgPath, rest[1:])
 	}
 	fmt.Fprintf(os.Stderr, "unknown command %q\n%s", rest[0], usage)
 	return exitUsage
