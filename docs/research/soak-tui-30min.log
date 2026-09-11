@@ -1,0 +1,8 @@
+    0s rss=11760 kB threads=11
+  300s rss=17960 kB threads=15
+  600s rss=16816 kB threads=15
+  900s rss=17492 kB threads=15
+ 1200s rss=17624 kB threads=15
+ 1500s rss=17400 kB threads=15
+ 1800s rss=15432 kB threads=15
+exit=0

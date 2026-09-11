@@ -8,7 +8,7 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
    └── monerizer ─────┘   (systemd · GET /2/summary · чтение /run/…-api)
 ```
 
-Состояние: v1 реализована и проверена на стенде (Arch Linux, systemd 261, P2Pool 4.18, XMRig 6.26.0). Приёмка на Debian 13 — впереди.
+Состояние: v1 реализована и проверена на Arch Linux (systemd 261) и Debian 13 (systemd 257) с P2Pool 4.18 и XMRig 6.26.0 — [отчёт приёмки](docs/research/acceptance-report-v1.md).
 
 ## Что умеет
 
@@ -51,7 +51,7 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
 
 - [Установка](docs/install.md) · [Диагностика](docs/troubleshooting.md) · [Обновление upstream](docs/updating.md)
 - [ТЗ v1](docs/superpowers/specs/2026-09-11-monerizer-design.md) · [План реализации](docs/superpowers/plans/2026-09-11-monerizer-implementation.md)
-- [Контракты источников](docs/research/upstream-contracts.md) · [Отчёт стенда №1](docs/research/stand-report-1.md) · [№2](docs/research/stand-report-2.md)
+- [Контракты источников](docs/research/upstream-contracts.md) · [Отчёт стенда №1](docs/research/stand-report-1.md) · [№2](docs/research/stand-report-2.md) · [Приёмка v1](docs/research/acceptance-report-v1.md)
 - [Исходный handoff](xmrig-p2pool-tui-ai-handoff-v2.md) — история; решения ТЗ имеют приоритет.
 
 Лицензия — MIT. XMRig и P2Pool не входят в поставку и распространяются по своим лицензиям.
