@@ -4,11 +4,13 @@ package doctor
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/Plasmoid77/monerizer/internal/config"
+	"github.com/Plasmoid77/monerizer/internal/node"
 	"github.com/Plasmoid77/monerizer/internal/status"
 	"github.com/Plasmoid77/monerizer/internal/systemd"
 )
@@ -270,6 +272,7 @@ func (r *runner) localChecks(ctx context.Context) {
 	} else {
 		r.add("CLOCK", "monerizer", Pass, "file timestamps are not in the future", "")
 	}
+	r.nodeCheck(ctx)
 	r.add("CONTROL_ACCESS", "monerizer", Skip, "systemd has no safe dry-run for start/stop authorization", "use sudo or the optional polkit rule; test with monerizer restart xmrig")
 }
 
@@ -278,4 +281,28 @@ func i64(v *int64) string {
 		return "?"
 	}
 	return fmt.Sprint(*v)
+}
+
+func (r *runner) nodeCheck(ctx context.Context) {
+	if r.cfg.P2Pool.ParamsFile == "" {
+		r.add("NODE_RPC", "p2pool", Skip, "params_file not configured", "")
+		return
+	}
+	data, err := os.ReadFile(r.cfg.P2Pool.ParamsFile)
+	if err != nil {
+		r.add("NODE_RPC", "p2pool", Skip, "params_file: "+err.Error(), "")
+		return
+	}
+	c := node.ReadParams(data)
+	res := node.Probe(ctx, node.NewHTTPClient(), c)
+	switch {
+	case res.Error != "":
+		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s:%d: %s", c.Host, c.RPC, res.Error), "check host/rpc-port in p2pool.conf or run monerizer node list")
+	case res.Synchronized == nil || !*res.Synchronized:
+		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s:%d is not synchronized", c.Host, c.RPC), "wait for the node to sync or pick another with monerizer node list")
+	case res.ZMQOpen == nil || !*res.ZMQOpen:
+		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s: ZMQ port %d is closed", c.Host, c.ZMQ), "the node must run with --zmq-pub; check zmq-port in p2pool.conf")
+	default:
+		r.add("NODE_RPC", "p2pool", Pass, fmt.Sprintf("node %s:%d answers in %d ms, synchronized, ZMQ port open", c.Host, c.RPC, *res.LatencyMs), "")
+	}
 }
