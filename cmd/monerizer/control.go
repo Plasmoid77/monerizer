@@ -55,6 +55,18 @@ func cmdControl(cfgPath, verb string, args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	cctx, cancel := context.WithTimeout(ctx, controlDeadline)
+	if verb != "stop" {
+		// A unit stuck in start-limit-hit refuses a plain start until reset-failed (CLI-04).
+		if props, perr := systemd.Show(cctx, systemd.ExecRunner, units...); perr == nil {
+			for _, u := range units {
+				if props[u]["Result"] == "start-limit-hit" {
+					if rerr := systemd.Control(cctx, systemd.ExecRunner, "reset-failed", u); rerr != nil {
+						fmt.Fprintln(os.Stderr, rerr)
+					}
+				}
+			}
+		}
+	}
 	err = systemd.Control(cctx, systemd.ExecRunner, verb, units...)
 	cancel()
 
