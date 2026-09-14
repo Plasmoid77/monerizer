@@ -21,6 +21,7 @@
 | `CLOCK_UNCERTAIN` | mtime файла в будущем | Часы/NTP |
 | `FIELD_INVALID` | Upstream изменил тип поля | Показатель null, остальное работает; сообщить в issue с версией upstream |
 | XMRig: `FAILED TO APPLY MSR MOD`, hugepages 0% | Ожидаемо под непривилегированным пользователем | См. install.md §6 |
+| hugepages зарезервированы, но у XMRig < 100% | Страницы забрал P2Pool (свой RandomX dataset) или их меньше 1040 свободных | `light-mode = 1` в `p2pool.conf`, `nr_hugepages ≥ 1536`, перезагрузка |
 | `monerizer start`: код 3 | Нет прав на systemd | `sudo` или polkit-правило |
 | `monerizer start`: код 4 | systemctl не ответил за 90 s | Задание могло продолжиться: `monerizer status` |
 | `tui`: «needs an interactive terminal» | Нет TTY | Использовать `status` |

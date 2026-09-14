@@ -66,7 +66,13 @@ install -o root -g root -m 0644 examples/polkit/50-monerizer.rules /etc/polkit-1
 
 ## 6. Hugepages и MSR (административно, необязательно)
 
-Службы работают под непривилегированными пользователями, поэтому XMRig не применяет свой MSR-mod и не может выделить hugepages сам. Хостовая настройка — на усмотрение администратора, например `sysctl vm.nr_hugepages=1280` (+ `/etc/sysctl.d/`), затем `monerizer restart xmrig`. Без этого hashrate ниже; Monerizer это только показывает.
+Службы работают под непривилегированными пользователями, поэтому XMRig не применяет свой MSR-mod и не может выделить hugepages сам. Хостовая настройка — на усмотрение администратора:
+
+```sh
+printf 'vm.nr_hugepages = 1536\n' > /etc/sysctl.d/90-monerizer-hugepages.conf   # 3 GiB: XMRig ~1172 страниц + P2Pool light ~270
+```
+
+Применяется надёжно только при загрузке (на работающей системе память фрагментирована, `sysctl -w` выделит лишь часть). P2Pool сам держит RandomX dataset (2 GB и ~1200 hugepages); в примере `p2pool.conf` включён `light-mode = 1`, чтобы страницы достались XMRig. Проверка: `monerizer doctor` → `XMRIG_HUGEPAGES pass`, в журнале XMRig `huge pages 100%`. Без этого hashrate ниже; Monerizer это только показывает.
 
 ## Откат
 
