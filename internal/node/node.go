@@ -65,56 +65,79 @@ type Result struct {
 	LatencyMs    *int64 `json:"latency_ms"`
 	Synchronized *bool  `json:"synchronized"`
 	Height       *int64 `json:"height"`
+	HeadersOK    *bool  `json:"headers_ok"` // get_block_headers_range of 100 blocks succeeded
 	ZMQOpen      *bool  `json:"zmq_open"`
 	Error        string `json:"error,omitempty"`
 }
 
-// Usable reports whether the node is synchronized with an open ZMQ port.
+// Usable reports whether the node is synchronized, serves block header ranges
+// (what P2Pool downloads at start) and has an open ZMQ port.
 func (r Result) Usable() bool {
-	return r.Synchronized != nil && *r.Synchronized && r.ZMQOpen != nil && *r.ZMQOpen
+	return r.Synchronized != nil && *r.Synchronized && r.HeadersOK != nil && *r.HeadersOK && r.ZMQOpen != nil && *r.ZMQOpen
 }
 
-// Probe performs get_info over HTTP and a TCP connect to the ZMQ port.
-func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
-	res := Result{Candidate: c}
+// rpc posts one JSON-RPC call with its own ProbeTimeout and returns the decoded body.
+func rpc(ctx context.Context, client *http.Client, c Candidate, method string, params string) (jsonx.Object, time.Duration, error) {
 	ctx, cancel := context.WithTimeout(ctx, ProbeTimeout)
 	defer cancel()
-	body := strings.NewReader(`{"jsonrpc":"2.0","id":"0","method":"get_info"}`)
+	body := strings.NewReader(`{"jsonrpc":"2.0","id":"0","method":"` + method + `","params":` + params + `}`)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s/json_rpc", net.JoinHostPort(c.Host, strconv.Itoa(c.RPC))), body)
 	if err != nil {
-		res.Error = err.Error()
-		return res
+		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
-		res.Error = err.Error()
-		return res
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	if err != nil {
+		return nil, 0, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, 0, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	o, err := jsonx.Decode(raw)
+	if err != nil {
+		return nil, 0, errors.New("invalid JSON-RPC response")
+	}
+	if e, ok := o["error"].(map[string]any); ok {
+		return nil, 0, fmt.Errorf("%s: %v", method, e["message"])
+	}
+	return o, time.Since(start), nil
+}
+
+// Probe performs get_info, a 100-block get_block_headers_range (the call P2Pool
+// makes at start, which some filtered networks break) and a TCP connect to the ZMQ port.
+func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
+	res := Result{Candidate: c}
+	o, took, err := rpc(ctx, client, c, "get_info", "{}")
+	if err != nil {
 		res.Error = err.Error()
 		return res
 	}
-	if resp.StatusCode != http.StatusOK {
-		res.Error = fmt.Sprintf("HTTP %d", resp.StatusCode)
-		return res
-	}
-	lat := time.Since(start).Milliseconds()
+	lat := took.Milliseconds()
 	res.LatencyMs = &lat
-	o, err := jsonx.Decode(raw)
-	if err != nil {
-		res.Error = "invalid JSON-RPC response"
-		return res
-	}
 	if v, fe := o.Int("result", "height"); fe == nil {
 		res.Height = &v
 	}
 	if r, ok := o["result"].(map[string]any); ok {
 		if b, ok := r["synchronized"].(bool); ok {
 			res.Synchronized = &b
+		}
+	}
+	if res.Height != nil && *res.Height > 100 {
+		h, _, err := rpc(ctx, client, c, "get_block_headers_range", fmt.Sprintf(`{"start_height":%d,"end_height":%d}`, *res.Height-101, *res.Height-1))
+		ok := err == nil
+		if ok {
+			_, fe := h.Index(0, "result", "headers")
+			ok = fe == nil
+		}
+		res.HeadersOK = &ok
+		if !ok && err != nil {
+			res.Error = "headers: " + err.Error()
 		}
 	}
 	zctx, zcancel := context.WithTimeout(context.Background(), ProbeTimeout) // own budget, NODE-02

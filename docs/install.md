@@ -17,8 +17,8 @@ install -o root -g root -m 0755 xmrig  /usr/local/bin/xmrig
 
 ```sh
 groupadd -r monerizer
-useradd -r -g monerizer -s /usr/bin/nologin -d /var/lib/monerizer/p2pool -M monerizer-p2pool
-useradd -r -g monerizer -s /usr/bin/nologin -d /var/lib/monerizer/xmrig  -M monerizer-xmrig
+useradd -r -g monerizer -s /usr/sbin/nologin -d /var/lib/monerizer/p2pool -M monerizer-p2pool
+useradd -r -g monerizer -s /usr/sbin/nologin -d /var/lib/monerizer/xmrig  -M monerizer-xmrig
 install -d -o root -g root -m 0755 /etc/monerizer
 install -o root -g monerizer -m 0640 examples/p2pool.conf  /etc/monerizer/p2pool.conf
 install -o root -g monerizer -m 0640 examples/xmrig.json   /etc/monerizer/xmrig.json

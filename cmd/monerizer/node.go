@@ -84,11 +84,15 @@ func printNodes(res []node.Result) {
 	fmt.Printf("%-36s %-6s %-6s %-8s %-6s %-10s %s\n", "HOST", "RPC", "ZMQ", "LATENCY", "SYNC", "HEIGHT", "NOTE")
 	for _, r := range res {
 		note := r.Error
-		if note == "" && !r.Usable() {
-			note = "not usable"
-		}
-		if r.Usable() {
+		switch {
+		case r.Usable():
 			note = "usable"
+		case note == "" && r.HeadersOK != nil && !*r.HeadersOK:
+			note = "block headers unavailable"
+		case note == "" && r.ZMQOpen != nil && !*r.ZMQOpen:
+			note = "zmq port closed"
+		case note == "":
+			note = "not usable"
 		}
 		fmt.Printf("%-36s %-6d %-6d %-8s %-6s %-10s %s\n", r.Host, r.RPC, r.ZMQ, ms(r.LatencyMs), boolStr(r.Synchronized), i64(r.Height), note)
 	}

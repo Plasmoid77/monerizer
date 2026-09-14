@@ -6,8 +6,8 @@
 set -eu
 P2POOL_BIN=$1; XMRIG_BIN=$2; REPO=$3
 groupadd -r monerizer 2>/dev/null || true
-useradd -r -g monerizer -s /usr/bin/nologin -d /var/lib/monerizer/p2pool -M monerizer-p2pool 2>/dev/null || true
-useradd -r -g monerizer -s /usr/bin/nologin -d /var/lib/monerizer/xmrig -M monerizer-xmrig 2>/dev/null || true
+useradd -r -g monerizer -s /usr/sbin/nologin -d /var/lib/monerizer/p2pool -M monerizer-p2pool 2>/dev/null || true
+useradd -r -g monerizer -s /usr/sbin/nologin -d /var/lib/monerizer/xmrig -M monerizer-xmrig 2>/dev/null || true
 install -o root -g root -m 0755 "$P2POOL_BIN" /usr/local/bin/p2pool
 install -o root -g root -m 0755 "$XMRIG_BIN" /usr/local/bin/xmrig
 install -d -o root -g root -m 0755 /etc/monerizer

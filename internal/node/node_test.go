@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +27,12 @@ func TestParseList(t *testing.T) {
 
 func TestProbe(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"jsonrpc":"2.0","id":"0","result":{"height":100,"synchronized":true}}`))
+		b, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(b), "get_block_headers_range") {
+			w.Write([]byte(`{"jsonrpc":"2.0","id":"0","result":{"headers":[{"height":1}]}}`))
+			return
+		}
+		w.Write([]byte(`{"jsonrpc":"2.0","id":"0","result":{"height":1000,"synchronized":true}}`))
 	}))
 	defer srv.Close()
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")
@@ -35,7 +41,7 @@ func TestProbe(t *testing.T) {
 	rpc, _ := strconv.Atoi(rpcs)
 	zmq := ln.Addr().(*net.TCPAddr).Port
 	res := ProbeAll(context.Background(), NewHTTPClient(), []Candidate{{Host: host, RPC: rpc, ZMQ: 1}, {Host: host, RPC: rpc, ZMQ: zmq}, {Host: host, RPC: 1, ZMQ: zmq}})
-	if !res[0].Usable() || res[0].ZMQ != zmq || *res[0].Height != 100 {
+	if !res[0].Usable() || res[0].ZMQ != zmq || *res[0].Height != 1000 || !*res[0].HeadersOK {
 		t.Fatalf("first %+v", res[0])
 	}
 	if res[1].Usable() || res[2].Error == "" {
