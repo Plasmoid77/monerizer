@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/jsonx"
+	"github.com/Plasmoid77/moneroid/internal/jsonx"
 )
 
 const (
@@ -330,7 +330,7 @@ func NewHTTPClient(d Dialer) *http.Client {
 
 var nodeKeys = []string{"host", "rpc-port", "zmq-port"}
 
-// Params is the subset of the params-file Monerizer reads.
+// Params is the subset of the params-file Moneroid reads.
 type Params struct {
 	Node   Candidate
 	Socks5 string // `socks5 = IP:port`, empty when P2Pool connects directly

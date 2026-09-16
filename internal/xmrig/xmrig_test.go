@@ -24,7 +24,7 @@ func TestParseFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.ID != "monerizer-xmrig" || s.Version != "6.26.0" || s.Hashrate10s == nil || s.Hashrate15m != nil {
+	if s.ID != "moneroid-xmrig" || s.Version != "6.26.0" || s.Hashrate10s == nil || s.Hashrate15m != nil {
 		t.Fatalf("unexpected %+v", s)
 	}
 	if *s.Accepted != 1 || *s.Rejected != 0 || *s.HugepagesTotal != 1172 || *s.ConnectionUptimeMs <= 0 {
@@ -72,7 +72,7 @@ func TestFetch(t *testing.T) {
 	defer srv.Close()
 	c := &Client{HTTP: NewHTTPClient(time.Second), BaseURL: srv.URL, Token: "secret"}
 	s, err := c.Fetch(context.Background())
-	if err != nil || s.ID != "monerizer-xmrig" || auth != "Bearer secret" {
+	if err != nil || s.ID != "moneroid-xmrig" || auth != "Bearer secret" {
 		t.Fatalf("fetch: %v %v %q", s, err, auth)
 	}
 	c.BaseURL = srv.URL + "/x"

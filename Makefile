@@ -1,9 +1,9 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-GOFLAGS  = -trimpath -ldflags "-s -w -X main.version=$(VERSION)"
+GOFLAGS  = -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$(VERSION)"
 
 .PHONY: build test vet fmt-check check
 build:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -o monerizer ./cmd/monerizer
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -o moneroid ./cmd/moneroid
 test:
 	go test -race ./...
 vet:

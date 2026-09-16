@@ -1,4 +1,4 @@
-// Command monerizer operates one P2Pool + XMRig pair under systemd (ТЗ §6).
+// Command moneroid operates one P2Pool + XMRig pair under systemd (ТЗ §6).
 package main
 
 import (
@@ -13,35 +13,35 @@ import (
 
 	"github.com/charmbracelet/colorprofile"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/status"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
-	"github.com/Plasmoid77/monerizer/internal/xmrig"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/xmrig"
 )
 
 var version = "dev"
 
 const usage = `Usage:
-  monerizer [--config PATH] status [--json] [--check]
-  monerizer [--config PATH] tui
-  monerizer [--config PATH] start   [all|p2pool|xmrig]
-  monerizer [--config PATH] stop    [all|p2pool|xmrig]
-  monerizer [--config PATH] restart [all|p2pool|xmrig]
-  monerizer [--config PATH] logs [--follow] [--lines N] [all|p2pool|xmrig]
-  monerizer [--config PATH] doctor [--json]
-  monerizer [--config PATH] payouts [--json] [--since TIME]
-  monerizer [--config PATH] node list [--json]
-  monerizer [--config PATH] node select [--dry-run]
-  monerizer [--config PATH] config path
-  monerizer version
-  monerizer --help
+  moneroid [--config PATH] status [--json] [--check]
+  moneroid [--config PATH] tui
+  moneroid [--config PATH] start   [all|p2pool|xmrig]
+  moneroid [--config PATH] stop    [all|p2pool|xmrig]
+  moneroid [--config PATH] restart [all|p2pool|xmrig]
+  moneroid [--config PATH] logs [--follow] [--lines N] [all|p2pool|xmrig]
+  moneroid [--config PATH] doctor [--json]
+  moneroid [--config PATH] payouts [--json] [--since TIME]
+  moneroid [--config PATH] node list [--json]
+  moneroid [--config PATH] node select [--dry-run]
+  moneroid [--config PATH] config path
+  moneroid version
+  moneroid --help
 
 Examples:
-  monerizer status
-  monerizer --config /etc/monerizer/monerizer.toml status --json
-  monerizer status --check && echo mining is healthy
-  sudo monerizer restart xmrig
-  monerizer logs --follow p2pool
+  moneroid status
+  moneroid --config /etc/moneroid/moneroid.toml status --json
+  moneroid status --check && echo mining is healthy
+  sudo moneroid restart xmrig
+  moneroid logs --follow p2pool
 `
 
 // Exit codes (CLI-07).
@@ -58,10 +58,10 @@ func main() {
 }
 
 func run(args []string) int {
-	global := flag.NewFlagSet("monerizer", flag.ContinueOnError)
+	global := flag.NewFlagSet("moneroid", flag.ContinueOnError)
 	global.SetOutput(os.Stderr)
 	global.Usage = func() { fmt.Fprint(os.Stderr, usage) }
-	cfgPath := global.String("config", config.DefaultPath, "path to monerizer.toml")
+	cfgPath := global.String("config", config.DefaultPath, "path to moneroid.toml")
 	if err := global.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return exitOK
@@ -75,14 +75,14 @@ func run(args []string) int {
 	}
 	switch rest[0] {
 	case "version":
-		fmt.Println("monerizer", version)
+		fmt.Println("moneroid", version)
 		return exitOK
 	case "config":
 		if len(rest) == 2 && rest[1] == "path" {
 			fmt.Println(*cfgPath)
 			return exitOK
 		}
-		fmt.Fprintln(os.Stderr, "usage: monerizer config path")
+		fmt.Fprintln(os.Stderr, "usage: moneroid config path")
 		return exitUsage
 	case "status":
 		return cmdStatus(*cfgPath, rest[1:])

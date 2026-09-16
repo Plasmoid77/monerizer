@@ -18,7 +18,7 @@
 
 | ID | Результат | Где |
 |---|---|---|
-| A01 | pass — службы живут без Monerizer и без SSH-сессии | стенд, всю ночь |
+| A01 | pass — службы живут без Moneroid и без SSH-сессии | стенд, всю ночь |
 | A02 | pass — `q`/Ctrl-C/Esc не вызывают control (код + unit-тест `TestQuitNeverControls`) | tui |
 | A03 | pass — XMRig active без HTTP → API unavailable, метрики null | unit-тест `xmrig api down`; стенд (остановленный xmrig) |
 | A04 | pass — старые файлы без доказанной связи → `SOURCE_SESSION_UNKNOWN`/`NOT_CURRENT_SESSION` | unit-тесты |
@@ -53,7 +53,7 @@
 
 ## Открытое
 
-- A20 (смена upstream-версии): на 2026-09-16 актуальные релизы всё ещё P2Pool 4.18 и XMRig 6.26.0 — проверить при следующем релизе upstream (замена бинарника + `monerizer restart`).
+- A20 (смена upstream-версии): на 2026-09-16 актуальные релизы всё ещё P2Pool 4.18 и XMRig 6.26.0 — проверить при следующем релизе upstream (замена бинарника + `moneroid restart`).
 - XMRig `SHA256SUMS.sig` не проверялась подписью (ключ не импортировался).
 
 ## Zeonux (2026-09-14 … 16)

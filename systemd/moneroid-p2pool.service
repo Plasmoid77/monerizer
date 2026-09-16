@@ -1,5 +1,5 @@
 [Unit]
-Description=P2Pool (Monerizer)
+Description=P2Pool (Moneroid)
 Documentation=https://github.com/SChernykh/p2pool/blob/master/docs/COMMAND_LINE.MD
 After=network-online.target
 Wants=network-online.target
@@ -8,13 +8,13 @@ StartLimitBurst=5
 
 [Service]
 Type=exec
-User=monerizer-p2pool
-Group=monerizer
-ExecStart=/usr/local/bin/p2pool --params-file /etc/monerizer/p2pool.conf
-WorkingDirectory=/var/lib/monerizer/p2pool
-StateDirectory=monerizer/p2pool
+User=moneroid-p2pool
+Group=moneroid
+ExecStart=/usr/local/bin/p2pool --params-file /etc/moneroid/p2pool.conf
+WorkingDirectory=/var/lib/moneroid/p2pool
+StateDirectory=moneroid/p2pool
 StateDirectoryMode=0700
-RuntimeDirectory=monerizer-p2pool-api
+RuntimeDirectory=moneroid-p2pool-api
 RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=no
 UMask=0027

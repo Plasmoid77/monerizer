@@ -1,4 +1,4 @@
-# Схема `monerizer payouts --json`, schema_version 1
+# Схема `moneroid payouts --json`, schema_version 1
 
 | Поле | Тип |
 |---|---|

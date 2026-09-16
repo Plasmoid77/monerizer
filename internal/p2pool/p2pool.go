@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/jsonx"
+	"github.com/Plasmoid77/moneroid/internal/jsonx"
 )
 
 const maxFile = 1 << 20

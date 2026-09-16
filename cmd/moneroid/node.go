@@ -10,13 +10,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/node"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/node"
 )
 
 func cmdNode(cfgPath string, args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: monerizer node list [--json] | node select [--dry-run]")
+		fmt.Fprintln(os.Stderr, "usage: moneroid node list [--json] | node select [--dry-run]")
 		return exitUsage
 	}
 	cfg, code := loadConfig(cfgPath)
@@ -35,7 +35,7 @@ func cmdNode(cfgPath string, args []string) int {
 
 func probeList(cfg *config.Config) ([]node.Result, int) {
 	if cfg.P2Pool.NodesFile == "" {
-		fmt.Fprintln(os.Stderr, "p2pool.nodes_file is not set in monerizer.toml")
+		fmt.Fprintln(os.Stderr, "p2pool.nodes_file is not set in moneroid.toml")
 		return nil, exitUsage
 	}
 	f, err := os.Open(cfg.P2Pool.NodesFile)
@@ -121,7 +121,7 @@ func nodeSelect(cfg *config.Config, args []string) int {
 		return exitUsage
 	}
 	if cfg.P2Pool.ParamsFile == "" {
-		fmt.Fprintln(os.Stderr, "p2pool.params_file is not set in monerizer.toml")
+		fmt.Fprintln(os.Stderr, "p2pool.params_file is not set in moneroid.toml")
 		return exitUsage
 	}
 	res, code := probeList(cfg)
@@ -167,6 +167,6 @@ func nodeSelect(cfg *config.Config, args []string) int {
 		}
 		return exitCheck
 	}
-	fmt.Printf("written %s; apply with: monerizer restart p2pool\n", cfg.P2Pool.ParamsFile)
+	fmt.Printf("written %s; apply with: moneroid restart p2pool\n", cfg.P2Pool.ParamsFile)
 	return exitOK
 }

@@ -8,9 +8,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/payouts"
-	"github.com/Plasmoid77/monerizer/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/payouts"
+	"github.com/Plasmoid77/moneroid/internal/status"
 )
 
 func model() Model {
@@ -143,7 +143,7 @@ func TestRenderDashboardFillsScreen(t *testing.T) {
 	if got := len(strings.Split(v, "\n")); got != m.height {
 		t.Fatalf("dashboard must fill %d rows, got %d", m.height, got)
 	}
-	for _, want := range []string{"monerizer test", "health OK", "14402", "1 payouts", "0.000411000000", "12 pool blocks", "0.175", "12345680", "active/running"} {
+	for _, want := range []string{"moneroid test", "health OK", "14402", "1 payouts", "0.000411000000", "12 pool blocks", "0.175", "12345680", "active/running"} {
 		if !strings.Contains(v, want) {
 			t.Fatalf("dashboard lacks %q:\n%s", want, v)
 		}

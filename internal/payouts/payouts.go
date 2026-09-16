@@ -1,5 +1,5 @@
 // Package payouts lists P2Pool payout events from the unit journal (ТЗ §6.2).
-// This is the one place Monerizer reads log lines: payouts are events P2Pool
+// This is the one place Moneroid reads log lines: payouts are events P2Pool
 // reports nowhere else, not metrics.
 package payouts
 
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
 )
 
 // P2Pool 4.18, src/p2pool.cpp: "Your wallet <addr> got a payout of <int>.<12 digits> XMR in block <height>".

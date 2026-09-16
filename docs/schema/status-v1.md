@@ -1,4 +1,4 @@
-# Схема `monerizer status --json`, schema_version 1
+# Схема `moneroid status --json`, schema_version 1
 
 Сгенерировано из живого snapshot 2026-09-11. Все числовые поля и `connected` nullable: `null` — «неизвестно», `0` — измеренный ноль. Время — RFC3339 UTC. `sources.*` — семь источников: `systemd_p2pool`, `systemd_xmrig`, `xmrig_summary`, `p2pool_p2p`, `p2pool_stratum`, `p2pool_network`, `p2pool_pool`; `services.*` — `p2pool`, `xmrig`. `health.level`: `ok|degraded|stopped|starting|unknown`; `sources.*.state`: `ok|stale|unavailable|invalid|permission_denied|unknown`. Единицы и upstream-происхождение — в [контрактах](../research/upstream-contracts.md). В пределах версии поля только добавляются.
 

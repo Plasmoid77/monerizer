@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/p2pool"
-	"github.com/Plasmoid77/monerizer/internal/xmrig"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/p2pool"
+	"github.com/Plasmoid77/moneroid/internal/xmrig"
 )
 
 // stand builds a collector over fixtures: fake systemctl, httptest XMRig, temp Data API dir.
@@ -25,7 +25,7 @@ type stand struct {
 	mono    time.Duration
 }
 
-const showActive = `Id=monerizer-p2pool.service
+const showActive = `Id=moneroid-p2pool.service
 LoadState=loaded
 ActiveState=active
 SubState=running
@@ -36,10 +36,10 @@ ExecMainStatus=0
 NRestarts=0
 InvocationID=aaa
 ExecMainStartTimestampMonotonic=1661000000
-RuntimeDirectory=monerizer-p2pool-api
+RuntimeDirectory=moneroid-p2pool-api
 RuntimeDirectoryPreserve=no
 
-Id=monerizer-xmrig.service
+Id=moneroid-xmrig.service
 LoadState=loaded
 ActiveState=active
 SubState=running
@@ -71,9 +71,9 @@ func newStand(t *testing.T) *stand {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(st.summary) }))
 	t.Cleanup(srv.Close)
 	cfg := &config.Config{}
-	cfg.Services.P2Pool, cfg.Services.XMRig = "monerizer-p2pool.service", "monerizer-xmrig.service"
+	cfg.Services.P2Pool, cfg.Services.XMRig = "moneroid-p2pool.service", "moneroid-xmrig.service"
 	cfg.P2Pool.DataAPIDir = st.dir
-	cfg.XMRig.ExpectedID = "monerizer-xmrig"
+	cfg.XMRig.ExpectedID = "moneroid-xmrig"
 	st.c = &Collector{
 		Cfg:       cfg,
 		Run:       func(context.Context, string, ...string) ([]byte, []byte, error) { return []byte(st.show), nil, nil },
@@ -94,7 +94,7 @@ func (st *stand) write(t *testing.T, name string, b []byte, mtime time.Time) {
 	os.Chtimes(p, mtime, mtime)
 }
 
-func (st *stand) linked() { st.c.Cfg.P2Pool.DataAPIDir = "/run/monerizer-p2pool-api" }
+func (st *stand) linked() { st.c.Cfg.P2Pool.DataAPIDir = "/run/moneroid-p2pool-api" }
 
 func TestCollectOK(t *testing.T) {
 	st := newStand(t)
@@ -189,7 +189,7 @@ func TestHealthRules(t *testing.T) {
 			// only claim the link for the session check.
 			st.c.Cfg.P2Pool.DataAPIDir = st.dir
 			st.c.Run = func(context.Context, string, ...string) ([]byte, []byte, error) {
-				return []byte(replaceAll(st.show, "RuntimeDirectory=monerizer-p2pool-api", "RuntimeDirectory="+runtimeName(st.dir))), nil, nil
+				return []byte(replaceAll(st.show, "RuntimeDirectory=moneroid-p2pool-api", "RuntimeDirectory="+runtimeName(st.dir))), nil, nil
 			}
 			tc.mut(st)
 			s := st.c.Collect(context.Background())

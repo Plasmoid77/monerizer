@@ -1,13 +1,13 @@
-# Monerizer
+# Moneroid
 
 *Minimal CLI/TUI to run one P2Pool + XMRig pair under systemd on Linux: status, health, doctor, logs, start/stop, node probing. Single static binary, upstream programs stay untouched. Docs are in Russian; see `docs/architecture.md` for a map of the code.*
 
-Маленький CLI/TUI для эксплуатации одной пары **P2Pool + XMRig** под systemd на Linux. Один бинарник без зависимостей; майнеры остаются штатными upstream-программами со своими нативными конфигами и обновляются независимо. Monerizer ничего не майнит, не хранит и не переписывает — только `systemctl`, `journalctl`, HTTP API XMRig и файлы Data API P2Pool.
+Маленький CLI/TUI для эксплуатации одной пары **P2Pool + XMRig** под systemd на Linux. Один бинарник без зависимостей; майнеры остаются штатными upstream-программами со своими нативными конфигами и обновляются независимо. Moneroid ничего не майнит, не хранит и не переписывает — только `systemctl`, `journalctl`, HTTP API XMRig и файлы Data API P2Pool.
 
 ```text
 XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
    ▲                  ▲
-   └── monerizer ─────┘   (systemd · GET /2/summary · чтение /run/…-api)
+   └── moneroid ─────┘   (systemd · GET /2/summary · чтение /run/…-api)
 ```
 
 Состояние: v1 реализована и проверена на Arch Linux (systemd 261) и Debian 13 (systemd 257) с P2Pool 4.18 и XMRig 6.26.0 — [отчёт приёмки](docs/research/acceptance-report-v1.md).
@@ -16,14 +16,14 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
 
 | Команда | Что делает |
 |---|---|
-| `monerizer status [--json] [--check]` | Состояние служб, показатели XMRig/P2Pool, свежесть источников, health и причины. `--check` → код 1, если health не `ok` |
-| `monerizer tui` | Живая панель во весь экран в духе `htop`: hashrate с полосами и sparkline, P2Pool, выплаты, проблемы; меню start/stop/restart с подтверждением, просмотр журнала, экран выплат (`p`) |
-| `monerizer start\|stop\|restart [all\|p2pool\|xmrig]` | Управление через systemd; после операции печатает фактическое состояние |
-| `monerizer logs [--follow] [--lines N] [target]` | `journalctl` по точным unit-именам |
-| `monerizer doctor [--json]` | 31 проверка: units, зависимости, права, API, свежесть, нода |
-| `monerizer payouts [--json] [--since TIME]` | Выплаты из журнала P2Pool: время, сумма, блок, итог; адрес кошелька не выводится |
-| `monerizer node list` / `node select [--dry-run]` | Проба нод из `nodes.txt` (RPC latency, sync, ZMQ-порт); `select` переписывает `host/rpc-port/zmq-port` в `p2pool.conf` |
-| `monerizer config path`, `version` | Служебные |
+| `moneroid status [--json] [--check]` | Состояние служб, показатели XMRig/P2Pool, свежесть источников, health и причины. `--check` → код 1, если health не `ok` |
+| `moneroid tui` | Живая панель во весь экран в духе `htop`: hashrate с полосами и sparkline, P2Pool, выплаты, проблемы; меню start/stop/restart с подтверждением, просмотр журнала, экран выплат (`p`) |
+| `moneroid start\|stop\|restart [all\|p2pool\|xmrig]` | Управление через systemd; после операции печатает фактическое состояние |
+| `moneroid logs [--follow] [--lines N] [target]` | `journalctl` по точным unit-именам |
+| `moneroid doctor [--json]` | 31 проверка: units, зависимости, права, API, свежесть, нода |
+| `moneroid payouts [--json] [--since TIME]` | Выплаты из журнала P2Pool: время, сумма, блок, итог; адрес кошелька не выводится |
+| `moneroid node list` / `node select [--dry-run]` | Проба нод из `nodes.txt` (RPC latency, sync, ZMQ-порт); `select` переписывает `host/rpc-port/zmq-port` в `p2pool.conf` |
+| `moneroid config path`, `version` | Служебные |
 
 `status` и `tui` подсвечены цветами Monero (оранжевый/белый; красный — только проблемы); в конвейере или при `NO_COLOR=1` вывод остаётся чистым текстом, смысл всегда есть в тексте.
 
@@ -38,17 +38,21 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
 
 ## Установка
 
-Пошагово — [docs/install.md](docs/install.md). Кратко:
+Одной командой (Linux x86_64 с systemd; Debian 13, Ubuntu 22.04 и Arch проверены), от пользователя с sudo:
 
-1. Собрать: `make build` (Go 1.27, `CGO_ENABLED=0`) → `./monerizer`.
-2. Установить `systemd/*.service`, `examples/{p2pool.conf,xmrig.json,monerizer.toml,nodes.txt}` в `/etc/monerizer`, создать группу `monerizer` и двух системных пользователей — команды в `docs/research/stand-install.sh`.
-3. Вписать в `/etc/monerizer/p2pool.conf` адрес выплат и ноду (или `sudo monerizer node select`).
-4. `monerizer doctor`, затем `sudo monerizer start`, затем `monerizer status`.
+```sh
+curl -fsSLO https://raw.githubusercontent.com/Plasmoid77/moneroid/main/install.sh
+sh install.sh --wallet 4ВАШ_ОСНОВНОЙ_АДРЕС          # + --enable (автозапуск), --hugepages, --node HOST:RPC:ZMQ, --sidechain mini|nano|main
+```
+
+Скрипт скачивает официальные релизы P2Pool и XMRig и бинарник Moneroid, сверяет их с SHA256, закреплёнными в скрипте (подпись P2Pool проверена при закреплении), создаёт группу и двух системных пользователей, кладёт конфиги и unit-файлы, выбирает Monero-ноду пробой из `nodes.txt`, запускает службы и показывает `doctor`. Повторный запуск ничего не перезаписывает в `/etc/moneroid`. Удаление: `sh install.sh --uninstall [--purge]`.
+
+Вручную, по шагам (или из исходников: `make build`, Go 1.27) — [docs/install.md](docs/install.md).
 
 ## Права
 
-- `status`, `tui`, `doctor`, `logs` — обычный пользователь из группы `monerizer` (чтение Data API и конфигов) и `systemd-journal`/`wheel` для журнала.
-- `start/stop/restart` — через `sudo` либо через опциональное polkit-правило `examples/polkit/50-monerizer.rules` (только два unit, только start/stop/restart, только группа `monerizer`).
+- `status`, `tui`, `doctor`, `logs` — обычный пользователь из группы `moneroid` (чтение Data API и конфигов) и `systemd-journal`/`wheel` для журнала.
+- `start/stop/restart` — через `sudo` либо через опциональное polkit-правило `examples/polkit/50-moneroid.rules` (только два unit, только start/stop/restart, только группа `moneroid`).
 - `node select` пишет в `p2pool.conf` → `sudo`.
 - Каталог Data API содержит `local/console` с cookie TCP-консоли P2Pool: право чтения каталога равнозначно управлению P2Pool, поэтому группа одна.
 

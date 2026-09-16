@@ -1,4 +1,4 @@
-module github.com/Plasmoid77/monerizer
+module github.com/Plasmoid77/moneroid
 
 go 1.27.0
 

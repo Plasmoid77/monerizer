@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/ansi"
-	"github.com/Plasmoid77/monerizer/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/ansi"
+	"github.com/Plasmoid77/moneroid/internal/status"
 )
 
 func printStatus(w io.Writer, s *status.Snapshot) {
-	fmt.Fprintf(w, "%s  %s  (collected in %d ms)\n", ansi.Orange("Monerizer status"), s.CollectedAt.Local().Format("2006-01-02 15:04:05 MST"), s.CollectionDurationMs)
+	fmt.Fprintf(w, "%s  %s  (collected in %d ms)\n", ansi.Orange("Moneroid status"), s.CollectedAt.Local().Format("2006-01-02 15:04:05 MST"), s.CollectionDurationMs)
 	fmt.Fprintf(w, "Health: %s\n\n", ansi.Health(s.Health.Level))
 
 	fmt.Fprintf(w, "%s\n", ansi.Orange(fmt.Sprintf("%-28s %-20s %-9s %-7s %-9s %s", "SERVICE", "STATE", "ENABLED", "PID", "UPTIME", "RESTARTS")))

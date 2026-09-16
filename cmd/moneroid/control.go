@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
 )
 
 const (
@@ -78,10 +78,10 @@ func cmdControl(cfgPath, verb string, args []string) int {
 	case err == nil:
 		fmt.Printf("systemctl %s: done\n", verb)
 	case ctx.Err() != nil:
-		fmt.Fprintf(os.Stderr, "systemctl %s interrupted; the job handed to systemd may still complete — check `monerizer status`\n", verb)
+		fmt.Fprintf(os.Stderr, "systemctl %s interrupted; the job handed to systemd may still complete — check `moneroid status`\n", verb)
 		result = exitInterrupt
 	case errors.Is(cctx.Err(), context.DeadlineExceeded):
-		fmt.Fprintf(os.Stderr, "systemctl %s did not finish within %s; the job may still complete — check `monerizer status`\n", verb, controlDeadline)
+		fmt.Fprintf(os.Stderr, "systemctl %s did not finish within %s; the job may still complete — check `moneroid status`\n", verb, controlDeadline)
 		result = exitTimeout
 	default:
 		fmt.Fprintln(os.Stderr, err)

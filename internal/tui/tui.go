@@ -12,10 +12,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/payouts"
-	"github.com/Plasmoid77/monerizer/internal/status"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/payouts"
+	"github.com/Plasmoid77/moneroid/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
 )
 
 const (

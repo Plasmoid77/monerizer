@@ -1,4 +1,4 @@
-# Схема `monerizer doctor --json`, schema_version 1
+# Схема `moneroid doctor --json`, schema_version 1
 
 `checks[].result`: `pass|warn|fail|skip`; `remedy` — строка или `null`. Код завершения 1 при `summary.fail > 0`. Каталог кодов — ТЗ DOC-05.
 

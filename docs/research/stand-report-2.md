@@ -1,17 +1,17 @@
 # Отчёт стенда №2 — пара под systemd
 
-Дата: 2026-09-11. Хост тот же (Arch, systemd 261). Установка — `stand-install.sh` (root), откат — `stand-rollback.sh`. Отличие от ТЗ 0.3: одна группа `monerizer` для чтения API, чтения конфигов и (в будущем) polkit-управления; причина — console cookie в `local/console` (отчёт №1, §6).
+Дата: 2026-09-11. Хост тот же (Arch, systemd 261). Установка — `stand-install.sh` (root), откат — `stand-rollback.sh`. Отличие от ТЗ 0.3: одна группа `moneroid` для чтения API, чтения конфигов и (в будущем) polkit-управления; причина — console cookie в `local/console` (отчёт №1, §6).
 
 ## 1. Что создано в системе
 
-Группа `monerizer`; пользователи `monerizer-p2pool`, `monerizer-xmrig` (system, nologin, primary group `monerizer`); `/usr/local/bin/{p2pool,xmrig}` root 0755; `/etc/monerizer/{p2pool.conf,xmrig.json}` root:monerizer 0640; units `systemd/*.service`; `plasmoid` добавлен в `monerizer`. Каталоги `/var/lib/monerizer/{p2pool,xmrig}` (0700, StateDirectory) и `/run/monerizer-p2pool-api` (RuntimeDirectory) создаёт systemd. Автозапуск не включён. Дополнительно для ночной работы: `sleep/suspend/hibernate/hybrid-sleep.target` masked, drop-in logind `HandleLidSwitch*=ignore`.
+Группа `moneroid`; пользователи `moneroid-p2pool`, `moneroid-xmrig` (system, nologin, primary group `moneroid`); `/usr/local/bin/{p2pool,xmrig}` root 0755; `/etc/moneroid/{p2pool.conf,xmrig.json}` root:moneroid 0640; units `systemd/*.service`; `plasmoid` добавлен в `moneroid`. Каталоги `/var/lib/moneroid/{p2pool,xmrig}` (0700, StateDirectory) и `/run/moneroid-p2pool-api` (RuntimeDirectory) создаёт systemd. Автозапуск не включён. Дополнительно для ночной работы: `sleep/suspend/hibernate/hybrid-sleep.target` masked, drop-in logind `HandleLidSwitch*=ignore`.
 
 ## 2. Результаты
 
 | Проверка | Результат |
 |---|---|
 | Unit-профиль SYS-02/SEC-08 (`ProtectSystem=strict`, `ProtectHome`, `NoNewPrivileges`, `PrivateTmp`) с RandomX/JIT | Оба процесса работают; XMRig `+JIT`, dataset 2336 MB выделен |
-| `RuntimeDirectory` без setgid, `Group=monerizer` + `UMask=0027` | Каталоги 0750, файлы 0640, owner `monerizer-p2pool:monerizer` — setgid не нужен, `RuntimeDirectoryMode=0750` достаточно |
+| `RuntimeDirectory` без setgid, `Group=moneroid` + `UMask=0027` | Каталоги 0750, файлы 0640, owner `moneroid-p2pool:moneroid` — setgid не нужен, `RuntimeDirectoryMode=0750` достаточно |
 | Чтение API членом группы / посторонним | Член группы читает; посторонний — `Permission denied` на каталоге |
 | `RuntimeDirectoryPreserve=no` | После `stop` каталог удалён, после `start` создан заново пустым (A26) |
 | `systemctl show` всех свойств SYS-06 без прав | Доступны, включая `InvocationID`, `ExecMainStartTimestampMonotonic`, `RuntimeDirectory*`. `Requires=` содержит неявные `system.slice sysinit.target -.mount` — doctor ищет только имя парного unit |

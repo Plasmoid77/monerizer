@@ -33,7 +33,7 @@
 
 ## 4. XMRig
 
-- `--config` с `autosave=false`, `watch=false`, `colors=false`, `http` на 127.0.0.1:18088 restricted, `api.id=monerizer-xmrig`, `max-threads-hint=50` (4 потока): подключился к 127.0.0.1:3333, первый accepted share через < 75 s, ~880 H/s.
+- `--config` с `autosave=false`, `watch=false`, `colors=false`, `http` на 127.0.0.1:18088 restricted, `api.id=moneroid-xmrig`, `max-threads-hint=50` (4 потока): подключился к 127.0.0.1:3333, первый accepted share через < 75 s, ~880 H/s.
 - **При stdout в обычный файл XMRig не пишет ничего** (0 байт даже с `--dry-run`). Под systemd (stdout — stream socket journald) лог идёт штатно: проверено в отчёте №2. `"syslog": true` не нужен (даёт дубли).
 - `/2/summary`: `hashrate.total[2]` = null в первые 15 минут (подтверждает nullable); `hugepages = [0, 1172]`; `restricted=true`. `/2/backends[0].msr = false`.
 - SIGTERM → остановка за 0,41 s.

@@ -1,4 +1,4 @@
-// Package config loads and validates monerizer.toml (ТЗ §5.3, CFG-01..08).
+// Package config loads and validates moneroid.toml (ТЗ §5.3, CFG-01..08).
 package config
 
 import (
@@ -15,7 +15,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const DefaultPath = "/etc/monerizer/monerizer.toml"
+const DefaultPath = "/etc/moneroid/moneroid.toml"
 
 type Config struct {
 	SchemaVersion int `toml:"schema_version"`

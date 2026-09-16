@@ -1,4 +1,4 @@
-# Контракты источников Monerizer v1
+# Контракты источников Moneroid v1
 
 Дата проверки: 2026-09-11. Приложение к [ТЗ](../spec.md).
 Проверены публичные исходники; runtime-запусков и реальных captures в этой работе не было.
@@ -81,7 +81,7 @@ Upstream также выдаёт `peers` как массив строк `dir,pin
 
 Файлы не имеют расширения. Проверенная реализация пишет временный файл, закрывает и переименовывает его в окончательный. Читаются только окончательные имена; согласованность нескольких файлов в одном атомарном snapshot не гарантируется. [p2pool_api.cpp](https://github.com/SChernykh/p2pool/blob/9b7395b8c97e7705a138dda2f4edef6b91eebe5f/src/p2pool_api.cpp#L153)
 
-## 6. Политика свежести Monerizer
+## 6. Политика свежести Moneroid
 
 Следующие пороги — решения продукта, не нормативы upstream.
 
@@ -111,4 +111,4 @@ P2Pool поддерживает `--params-file` без других CLI-пара
 
 Обработчик EOF не вызывает остановку pool; окончательная работа stdin=null и корректная остановка всё равно проверяются на стенде. [console_commands.cpp](https://github.com/SChernykh/p2pool/blob/9b7395b8c97e7705a138dda2f4edef6b91eebe5f/src/console_commands.cpp#L441)
 
-XMRig пишет консольный лог только если stdout — tty, pipe или socket (libuv); при перенаправлении в обычный файл вывод пуст (стенд 2026-09-11: 0 байт). Под systemd (`StandardOutput=journal`, stream socket) лог попадает в journald штатно; `"syslog": true` не нужен и даёт дубли строк. XMRig допускает комментарии и trailing commas в нативном JSON. Проверка его конфига строгим `encoding/json` дала бы ложный отказ, поэтому Monerizer её не выполняет. [Json_unix.cpp](https://github.com/xmrig/xmrig/blob/b2ca72480c58d197e18c885d9fc1a0c8d517e60a/src/base/io/json/Json_unix.cpp#L29)
+XMRig пишет консольный лог только если stdout — tty, pipe или socket (libuv); при перенаправлении в обычный файл вывод пуст (стенд 2026-09-11: 0 байт). Под systemd (`StandardOutput=journal`, stream socket) лог попадает в journald штатно; `"syslog": true` не нужен и даёт дубли строк. XMRig допускает комментарии и trailing commas в нативном JSON. Проверка его конфига строгим `encoding/json` дала бы ложный отказ, поэтому Moneroid её не выполняет. [Json_unix.cpp](https://github.com/xmrig/xmrig/blob/b2ca72480c58d197e18c885d9fc1a0c8d517e60a/src/base/io/json/Json_unix.cpp#L29)

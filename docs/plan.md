@@ -1,4 +1,4 @@
-# Monerizer v1 — план реализации
+# Moneroid v1 — план реализации
 
 Дата: 2026-09-11. Редакция: 0.2. Состояние на утро 2026-09-11: этапы 0–5 выполнены (стенд-ноутбук + VM Debian 13, см. §10 и [отчёт приёмки](research/acceptance-report-v1.md)); открыты systemd 249, A10/A20/A28.
 Основание: [ТЗ 0.3](spec.md) и [контракты источников](research/upstream-contracts.md).
@@ -26,7 +26,7 @@ Handoff v2 остаётся историческим документом; вс�
 
 | # | Вопрос | Решение |
 |---|---|---|
-| D1 | Module path и хостинг | `github.com/Plasmoid77/monerizer` |
+| D1 | Module path и хостинг | `github.com/Plasmoid77/moneroid` |
 | D2 | Лицензия собственного кода (INSTALL-05). Upstream GPL-3.0 не наследуется: код XMRig/P2Pool не линкуется и не копируется | MIT |
 | D3 | Стенд этапа 1 | Рабочий ноутбук владельца (Arch Linux, systemd актуальной версии). Установка users/units/бинарников на него выполняется только по явной команде владельца на каждом шаге; майнинг ограничен временем проверки. Приёмка на Debian 13 (этап 5) — VM или тестовый VPS |
 | D4 | Monero-нода для стенда | Удалённая нода с RPC+ZMQ; на этапе 1 адрес указывает владелец вручную, с этапа 3 — `node select` (§1.1) |
@@ -36,7 +36,7 @@ Handoff v2 остаётся историческим документом; вс�
 
 ### 1.1. Автовыбор ноды
 
-Владелец выбрал автовыбор ноды «как в Gupax» при требовании максимальной минималистичности. Принятая форма — ТЗ §6.1 (NODE-01..05): `node list` измеряет кандидатов из редактируемого `nodes.txt`, `node select` записывает три ключа в `p2pool.conf` и напоминает о restart. Это единственная запись Monerizer в нативный конфиг; встроенного списка, фонового переключения и выбора при `start` нет. Список-пример собирается на этапе 3 из публично документированных community-нод с ZMQ с указанием источника и даты; за актуальность списка после релиза отвечает владелец файла.
+Владелец выбрал автовыбор ноды «как в Gupax» при требовании максимальной минималистичности. Принятая форма — ТЗ §6.1 (NODE-01..05): `node list` измеряет кандидатов из редактируемого `nodes.txt`, `node select` записывает три ключа в `p2pool.conf` и напоминает о restart. Это единственная запись Moneroid в нативный конфиг; встроенного списка, фонового переключения и выбора при `start` нет. Список-пример собирается на этапе 3 из публично документированных community-нод с ZMQ с указанием источника и даты; за актуальность списка после релиза отвечает владелец файла.
 
 ## 2. Этап 0 — репозиторий
 
@@ -45,12 +45,12 @@ Handoff v2 остаётся историческим документом; вс�
 1. `git init`, ветка `main`, `.gitignore` (бинарник, `dist/`, `*.token`, локальные captures до очистки).
 2. `go mod init <D1>`, `go 1.27`, toolchain pin в `go.mod`; `CGO_ENABLED=0`.
 3. Зависимости только: `charm.land/bubbletea/v2` (и то, что она тянет транзитивно), `github.com/BurntSushi/toml`. `golang.org/x/sys` допускается для `CLOCK_MONOTONIC` и isatty, если Bubble Tea уже приносит его транзитивно.
-4. Каркас каталогов из ТЗ §15: `cmd/monerizer`, `internal/{config,status,systemd,xmrig,p2pool,doctor,tui}`, `examples`, `systemd`, `testdata`, `docs`.
+4. Каркас каталогов из ТЗ §15: `cmd/moneroid`, `internal/{config,status,systemd,xmrig,p2pool,doctor,tui}`, `examples`, `systemd`, `testdata`, `docs`.
 5. `Makefile` с целями `build`, `test`, `vet`, `fmt-check`, `release` (см. §8). Без linters-фреймворков; `go vet` + `gofmt` обязательны.
 6. `LICENSE` (D2), `README.md` переписывается по INSTALL-04 в конце этапа 3; до этого остаётся статусной заглушкой.
 7. Документы: ТЗ и план остаются в `docs/`; `docs/research/` — проверенные факты; `docs/schema/` — JSON-схемы после этапа 1.
 
-Критерий: `make build test vet fmt-check` проходит на пустом каркасе; `monerizer version` печатает версию из `-ldflags`.
+Критерий: `make build test vet fmt-check` проходит на пустом каркасе; `moneroid version` печатает версию из `-ldflags`.
 
 ## 3. Этап 1 — стенд и контракты
 
@@ -59,7 +59,7 @@ Handoff v2 остаётся историческим документом; вс�
 ### 3.1. Подготовка стенда (администратор, вручную, по будущей инструкции)
 
 1. Установить бинарники актуальных релизов (на 2026-09-11: P2Pool 4.18, XMRig 6.26.0) из официальных GitHub Releases, проверить checksum/подпись. Размещение `/usr/local/bin`.
-2. Создать `monerizer-p2pool`, `monerizer-xmrig`, группу `monerizer-observers`; каталоги из ТЗ §5.2 с правами SEC-02.
+2. Создать `moneroid-p2pool`, `moneroid-xmrig`, группу `moneroid-observers`; каталоги из ТЗ §5.2 с правами SEC-02.
 3. Установить черновики `examples/p2pool.conf`, `examples/xmrig.json`, `systemd/*.service` (профиль SYS-02, SYS-03, SYS-11, SEC-08).
 4. `daemon-reload`, `start` вручную через `systemctl`, наблюдать журнал.
 
@@ -85,7 +85,7 @@ Handoff v2 остаётся историческим документом; вс�
 
 ### 3.3. Fixtures
 
-- `testdata/xmrig/6.26.0/summary.json` — реальный ответ, очищенный: `id`→`monerizer-xmrig`, pool→`127.0.0.1:3333`, без токена.
+- `testdata/xmrig/6.26.0/summary.json` — реальный ответ, очищенный: `id`→`moneroid-xmrig`, pool→`127.0.0.1:3333`, без токена.
 - `testdata/p2pool/4.17.1/{local-p2p,local-stratum,network-stats,pool-stats}.json` — реальные, адрес и peers заменены placeholder.
 - `testdata/systemd/show-*.txt` — реальный вывод `systemctl show` для active/inactive/failed/not-found/masked.
 - Синтетические: `*-broken-*.json` (обрезанный JSON, не-object, null-поля, отрицательные counts, поле неверного типа, 1 MiB+1).
@@ -99,12 +99,12 @@ Handoff v2 остаётся историческим документом; вс�
 
 ## 4. Этап 2 — read-only CLI
 
-Результат: `monerizer status [--json] [--check]`, `version`, `config path` работают против стенда и полностью покрыты unit-тестами на fixtures.
+Результат: `moneroid status [--json] [--check]`, `version`, `config path` работают против стенда и полностью покрыты unit-тестами на fixtures.
 
 ### 4.1. Пакеты и интерфейсы
 
 ```text
-cmd/monerizer/main.go
+cmd/moneroid/main.go
     dispatcher по §6 ТЗ; коды завершения CLI-07; --config до подкоманды.
 
 internal/config
@@ -156,15 +156,15 @@ internal/p2pool
 2. `logs`: `journalctl --no-pager -u U [-u U2] -n N [-f] -o short-iso` или эквивалент без цвета; Ctrl-C → 0.
 3. `internal/doctor`: проверки по DOC-05 ТЗ; JSON по `docs/schema/doctor-v1.md`; exit 1 при fail.
 3a. `internal/node`: парсер `nodes.txt`, параллельный probe (`get_info` + TCP ZMQ), ранжирование, замена трёх ключей в params-file с атомарной записью; `examples/nodes.txt`. Тесты: `httptest` для RPC, `net.Listen` для ZMQ-порта, golden-тесты замены ключей на конфиге с комментариями и без ключей.
-4. Финальные `systemd/monerizer-p2pool.service`, `systemd/monerizer-xmrig.service`, `examples/*` — версии, проверенные на этапе 1, плюс правки по результатам.
-5. Опциональное polkit-правило `examples/polkit/50-monerizer.rules` строго по SEC-03; отдельный шаг инструкции.
+4. Финальные `systemd/moneroid-p2pool.service`, `systemd/moneroid-xmrig.service`, `examples/*` — версии, проверенные на этапе 1, плюс правки по результатам.
+5. Опциональное polkit-правило `examples/polkit/50-moneroid.rules` строго по SEC-03; отдельный шаг инструкции.
 6. Документация: `README.md` (INSTALL-04), `docs/install.md`, `docs/troubleshooting.md`, `docs/updating.md`. Инструкция обязана требовать подстановку адреса и node до запуска (INSTALL-01).
 
 Критерии: A01, A09–A12, A19, A21, A24, A28–A30 на стенде; отчёт `docs/research/stand-report-2.md`.
 
 ## 6. Этап 4 — TUI
 
-Результат: `monerizer tui` над тем же `Collector` и `Control`.
+Результат: `moneroid tui` над тем же `Collector` и `Control`.
 
 1. Модель Bubble Tea v2: состояния `dashboard | services-menu | confirm | help | small-terminal`; таймер по `refresh_ms`; пропуск тика при незавершённом сборе (DATA-01, A17).
 2. История hashrate: кольцевой буфер 1200 точек / 10 минут (DATA-09), разрыв при InvocationID/uptime reset (DATA-08).
@@ -181,7 +181,7 @@ internal/p2pool
 2. Вторая система по D7.
 3. 30-минутное наблюдение TUI: goroutines и RSS стабильны (нефункциональные критерии §14).
 4. Отчёт `docs/research/acceptance-report-v1.md`: ОС, systemd, upstream-версии, команда, результат по каждому A-пункту.
-5. Release: `monerizer_<ver>_linux_amd64` + `SHA256SUMS` + `examples/` + `systemd/` + `docs/`. Публикация — решение владельца (GitHub Releases).
+5. Release: `moneroid_<ver>_linux_amd64` + `SHA256SUMS` + `examples/` + `systemd/` + `docs/`. Публикация — решение владельца (GitHub Releases).
 
 ## 8. Правила работы во время реализации
 

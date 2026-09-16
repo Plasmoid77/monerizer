@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/jsonx"
+	"github.com/Plasmoid77/moneroid/internal/jsonx"
 )
 
 const maxBody = 1 << 20

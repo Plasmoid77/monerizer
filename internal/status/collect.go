@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/jsonx"
-	"github.com/Plasmoid77/monerizer/internal/p2pool"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
-	"github.com/Plasmoid77/monerizer/internal/xmrig"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/jsonx"
+	"github.com/Plasmoid77/moneroid/internal/p2pool"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/xmrig"
 )
 
 // Product freshness policy (contracts §6).

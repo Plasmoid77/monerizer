@@ -8,10 +8,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/doctor"
-	"github.com/Plasmoid77/monerizer/internal/status"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
-	"github.com/Plasmoid77/monerizer/internal/xmrig"
+	"github.com/Plasmoid77/moneroid/internal/doctor"
+	"github.com/Plasmoid77/moneroid/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/xmrig"
 )
 
 func cmdDoctor(cfgPath string, args []string) int {

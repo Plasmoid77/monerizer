@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/node"
-	"github.com/Plasmoid77/monerizer/internal/status"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/node"
+	"github.com/Plasmoid77/moneroid/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
 )
 
 const (
@@ -106,9 +106,9 @@ func (r *runner) systemdChecks() {
 		case "active":
 			r.add("UNIT_ACTIVE", comp, Pass, sv.Unit+" is active/"+sv.SubState, "")
 		case "failed":
-			r.add("UNIT_ACTIVE", comp, Fail, fmt.Sprintf("%s is failed: result=%s exit=%s restarts=%s", sv.Unit, sv.Result, i64(sv.LastExitStatus), i64(sv.RestartCount)), "monerizer logs "+comp+"; fix the native config or node, then monerizer start "+comp)
+			r.add("UNIT_ACTIVE", comp, Fail, fmt.Sprintf("%s is failed: result=%s exit=%s restarts=%s", sv.Unit, sv.Result, i64(sv.LastExitStatus), i64(sv.RestartCount)), "moneroid logs "+comp+"; fix the native config or node, then moneroid start "+comp)
 		default:
-			r.add("UNIT_ACTIVE", comp, Warn, sv.Unit+" is "+sv.ActiveState, "monerizer start "+comp)
+			r.add("UNIT_ACTIVE", comp, Warn, sv.Unit+" is "+sv.ActiveState, "moneroid start "+comp)
 		}
 		if comp == "xmrig" {
 			if systemd.Props(props).HasDependency("After", pair[comp]) {
@@ -159,9 +159,9 @@ func (r *runner) p2poolChecks() {
 	case p2p.State == status.StateOK:
 		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p: "+p2p.ErrorCode, "restart p2pool if the file does not refresh; check the system clock")
 	case p2p.State == status.StateStale:
-		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p is stale (SOURCE_STALE)", "monerizer logs p2pool")
+		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p is stale (SOURCE_STALE)", "moneroid logs p2pool")
 	default:
-		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p: "+p2p.ErrorCode+" "+p2p.Message, "the file appears ~60 s after start; check local-api in p2pool.conf; monerizer logs p2pool")
+		r.add("DATA_API_P2P", "p2pool", Warn, "local/p2p: "+p2p.ErrorCode+" "+p2p.Message, "the file appears ~60 s after start; check local-api in p2pool.conf; moneroid logs p2pool")
 	}
 	var bad []string
 	for _, n := range []string{status.SrcP2PoolStratum, status.SrcP2PoolNetwork, status.SrcP2PoolPool} {
@@ -172,7 +172,7 @@ func (r *runner) p2poolChecks() {
 	if len(bad) == 0 {
 		r.add("DATA_API_EVENT_FILES", "p2pool", Pass, "local/stratum, network/stats, pool/stats are readable", "")
 	} else {
-		r.add("DATA_API_EVENT_FILES", "p2pool", Warn, strings.Join(bad, " "), "event files appear after the first job/block; otherwise monerizer logs p2pool")
+		r.add("DATA_API_EVENT_FILES", "p2pool", Warn, strings.Join(bad, " "), "event files appear after the first job/block; otherwise moneroid logs p2pool")
 	}
 	switch c := s.P2Pool.P2PConnections; {
 	case c == nil:
@@ -188,7 +188,7 @@ func (r *runner) p2poolChecks() {
 	case h == nil || ph == nil:
 		r.add("SIDECHAIN_SYNC", "p2pool", Skip, "sidechain or peer heights unknown", "")
 	case *h+status.SidechainLag < *ph:
-		r.add("SIDECHAIN_SYNC", "p2pool", Warn, fmt.Sprintf("local sidechain height %d, peers report %d", *h, *ph), "wait: P2Pool downloads and verifies the PPLNS window after start (minutes); if it never catches up, check the node and monerizer logs p2pool")
+		r.add("SIDECHAIN_SYNC", "p2pool", Warn, fmt.Sprintf("local sidechain height %d, peers report %d", *h, *ph), "wait: P2Pool downloads and verifies the PPLNS window after start (minutes); if it never catches up, check the node and moneroid logs p2pool")
 	default:
 		r.add("SIDECHAIN_SYNC", "p2pool", Pass, fmt.Sprintf("sidechain height %d matches peers", *h), "")
 	}
@@ -196,7 +196,7 @@ func (r *runner) p2poolChecks() {
 	case a == nil:
 		r.add("ZMQ_ACTIVITY", "p2pool", Skip, "ZMQ age unknown", "")
 	case *a > status.ZMQOldAfter.Seconds():
-		r.add("ZMQ_ACTIVITY", "p2pool", Warn, fmt.Sprintf("no ZMQ activity for %.0f s", *a), "check the node's ZMQ port in p2pool.conf; monerizer logs p2pool")
+		r.add("ZMQ_ACTIVITY", "p2pool", Warn, fmt.Sprintf("no ZMQ activity for %.0f s", *a), "check the node's ZMQ port in p2pool.conf; moneroid logs p2pool")
 	default:
 		r.add("ZMQ_ACTIVITY", "p2pool", Pass, fmt.Sprintf("ZMQ activity %.0f s ago", *a), "")
 	}
@@ -220,7 +220,7 @@ func (r *runner) xmrigChecks() {
 	}
 	r.add("XMRIG_API", "xmrig", Pass, "GET /2/summary answered (XMRig "+s.XMRig.Version+")", "")
 	if src.ErrorCode == "SOURCE_ID_MISMATCH" {
-		r.add("XMRIG_ID", "xmrig", Fail, fmt.Sprintf("API id %q differs from expected_id %q", s.XMRig.ID, r.cfg.XMRig.ExpectedID), "set api.id in xmrig.json equal to expected_id in monerizer.toml")
+		r.add("XMRIG_ID", "xmrig", Fail, fmt.Sprintf("API id %q differs from expected_id %q", s.XMRig.ID, r.cfg.XMRig.ExpectedID), "set api.id in xmrig.json equal to expected_id in moneroid.toml")
 	} else {
 		r.add("XMRIG_ID", "xmrig", Pass, "API id matches expected_id", "")
 	}
@@ -244,7 +244,7 @@ func (r *runner) xmrigChecks() {
 	case h == nil:
 		r.add("XMRIG_HASHRATE", "xmrig", Skip, "10 s hashrate not reported yet", "")
 	case *h == 0:
-		r.add("XMRIG_HASHRATE", "xmrig", Warn, "10 s hashrate is zero", "monerizer logs xmrig")
+		r.add("XMRIG_HASHRATE", "xmrig", Warn, "10 s hashrate is zero", "moneroid logs xmrig")
 	default:
 		r.add("XMRIG_HASHRATE", "xmrig", Pass, fmt.Sprintf("10 s hashrate %.0f H/s", *h), "")
 	}
@@ -260,27 +260,27 @@ func (r *runner) xmrigChecks() {
 
 func (r *runner) localChecks(ctx context.Context) {
 	if r.cfg.XMRig.TokenFile == "" {
-		r.add("TOKEN_FILE", "monerizer", Skip, "token_file not configured", "")
+		r.add("TOKEN_FILE", "moneroid", Skip, "token_file not configured", "")
 	} else if _, err := r.cfg.ReadToken(); err != nil {
-		r.add("TOKEN_FILE", "monerizer", Fail, "token_file: "+err.Error(), "make the file readable by the operator group, one line, no CR/LF")
+		r.add("TOKEN_FILE", "moneroid", Fail, "token_file: "+err.Error(), "make the file readable by the operator group, one line, no CR/LF")
 	} else {
-		r.add("TOKEN_FILE", "monerizer", Pass, "token_file is readable", "")
+		r.add("TOKEN_FILE", "moneroid", Pass, "token_file is readable", "")
 	}
 	jctx, cancel := context.WithTimeout(ctx, status.ReadTimeout)
 	defer cancel()
 	_, stderr, err := r.run(jctx, "journalctl", "--no-pager", "-n", "1", "-u", r.cfg.Services.P2Pool)
 	if err != nil || strings.Contains(string(stderr), "not seeing messages") {
-		r.add("JOURNAL_ACCESS", "monerizer", Warn, "journalctl: "+strings.TrimSpace(string(stderr)), "add the operator to group systemd-journal to read service logs (SEC-04: not a mining fault)")
+		r.add("JOURNAL_ACCESS", "moneroid", Warn, "journalctl: "+strings.TrimSpace(string(stderr)), "add the operator to group systemd-journal to read service logs (SEC-04: not a mining fault)")
 	} else {
-		r.add("JOURNAL_ACCESS", "monerizer", Pass, "journalctl can read the unit journal", "")
+		r.add("JOURNAL_ACCESS", "moneroid", Pass, "journalctl can read the unit journal", "")
 	}
 	if r.snap.HasIssue("CLOCK_UNCERTAIN") {
-		r.add("CLOCK", "monerizer", Warn, "a Data API file has a modification time in the future", "check the system clock / NTP")
+		r.add("CLOCK", "moneroid", Warn, "a Data API file has a modification time in the future", "check the system clock / NTP")
 	} else {
-		r.add("CLOCK", "monerizer", Pass, "file timestamps are not in the future", "")
+		r.add("CLOCK", "moneroid", Pass, "file timestamps are not in the future", "")
 	}
 	r.nodeCheck(ctx)
-	r.add("CONTROL_ACCESS", "monerizer", Skip, "systemd has no safe dry-run for start/stop authorization", "use sudo or the optional polkit rule; test with monerizer restart xmrig")
+	r.add("CONTROL_ACCESS", "moneroid", Skip, "systemd has no safe dry-run for start/stop authorization", "use sudo or the optional polkit rule; test with moneroid restart xmrig")
 }
 
 func i64(v *int64) string {
@@ -305,9 +305,9 @@ func (r *runner) nodeCheck(ctx context.Context) {
 	res := node.Probe(ctx, node.NewHTTPClient(d), d, c)
 	switch {
 	case res.Error != "":
-		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s:%d: %s", c.Host, c.RPC, res.Error), "check host/rpc-port in p2pool.conf or run monerizer node list")
+		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s:%d: %s", c.Host, c.RPC, res.Error), "check host/rpc-port in p2pool.conf or run moneroid node list")
 	case res.Synchronized == nil || !*res.Synchronized:
-		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s:%d is not synchronized", c.Host, c.RPC), "wait for the node to sync or pick another with monerizer node list")
+		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s:%d is not synchronized", c.Host, c.RPC), "wait for the node to sync or pick another with moneroid node list")
 	case res.ZMQOpen == nil || !*res.ZMQOpen:
 		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s: ZMQ port %d is closed", c.Host, c.ZMQ), "the node must run with --zmq-pub; check zmq-port in p2pool.conf")
 	default:

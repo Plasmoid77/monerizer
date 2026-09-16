@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/status"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
-	"github.com/Plasmoid77/monerizer/internal/tui"
-	"github.com/Plasmoid77/monerizer/internal/xmrig"
+	"github.com/Plasmoid77/moneroid/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/tui"
+	"github.com/Plasmoid77/moneroid/internal/xmrig"
 )
 
 func cmdTUI(cfgPath string, args []string) int {
@@ -18,7 +18,7 @@ func cmdTUI(cfgPath string, args []string) int {
 	}
 	for _, f := range []*os.File{os.Stdin, os.Stdout} {
 		if st, err := f.Stat(); err != nil || st.Mode()&os.ModeCharDevice == 0 {
-			fmt.Fprintln(os.Stderr, "tui needs an interactive terminal; use `monerizer status` instead")
+			fmt.Fprintln(os.Stderr, "tui needs an interactive terminal; use `moneroid status` instead")
 			return exitUsage
 		}
 	}

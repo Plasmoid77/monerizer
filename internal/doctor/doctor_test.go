@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/config"
-	"github.com/Plasmoid77/monerizer/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/config"
+	"github.com/Plasmoid77/moneroid/internal/status"
 )
 
 func snapshot(t *testing.T) (*config.Config, *status.Snapshot) {

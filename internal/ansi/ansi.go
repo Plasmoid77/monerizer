@@ -1,4 +1,4 @@
-// Package ansi holds the few SGR sequences Monerizer uses: Monero orange
+// Package ansi holds the few SGR sequences Moneroid uses: Monero orange
 // (#FF8000: a touch lighter than the #FF6600 of the logo, so that 256-colour
 // terminals land on 208 instead of the reddish 202) and white. Colour never carries meaning
 // alone (UI-06); every state is also written as text. Sequences are emitted

@@ -1,4 +1,4 @@
-# Как устроен Monerizer
+# Как устроен Moneroid
 
 Один статический бинарник Go (~3,5 тыс. строк без тестов), два внешних модуля: `github.com/BurntSushi/toml` и `charm.land/bubbletea/v2` (только для `tui`). Никакого демона, состояния на диске и сети наружу, кроме loopback и — по запросу — проб нод.
 
@@ -7,12 +7,12 @@
 ```text
                      ┌──────────────── systemctl show / start / stop / restart / reset-failed
                      │                 journalctl -u …
-monerizer ───────────┼──────────────── GET http://127.0.0.1:18088/2/summary        (XMRig HTTP API)
+moneroid ───────────┼──────────────── GET http://127.0.0.1:18088/2/summary        (XMRig HTTP API)
   status/tui/doctor  │
-                     └──────────────── read /run/monerizer-p2pool-api/{local/p2p,local/stratum,network/stats,pool/stats}
+                     └──────────────── read /run/moneroid-p2pool-api/{local/p2p,local/stratum,network/stats,pool/stats}
                                         (P2Pool Data API, файлы пишет P2Pool)
 
-XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero-нода     (Monerizer в этой цепочке не участвует)
+XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero-нода     (Moneroid в этой цепочке не участвует)
 ```
 
 Один вызов `Collector.Collect` (`internal/status/collect.go`) опрашивает три источника **параллельно и независимо** с общим deadline 3 s (1 s на HTTP/systemctl). Отказ одного источника не трогает остальные; результат всегда есть — проблемы записываются в `sources` и `health.issues`, а не в ошибку.
@@ -21,8 +21,8 @@ XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero
 
 | Пакет | Отвечает за | Не отвечает за |
 |---|---|---|
-| `cmd/monerizer` | разбор аргументов, вывод текста/JSON, коды завершения (0/1/2/3/4/130) | логику данных |
-| `internal/config` | `monerizer.toml`: строгая схема, loopback-only `api_url`, абсолютные пути | чтение конфигов P2Pool/XMRig |
+| `cmd/moneroid` | разбор аргументов, вывод текста/JSON, коды завершения (0/1/2/3/4/130) | логику данных |
+| `internal/config` | `moneroid.toml`: строгая схема, loopback-only `api_url`, абсолютные пути | чтение конфигов P2Pool/XMRig |
 | `internal/systemd` | `systemctl show` → свойства; `systemctl VERB -- UNIT…`; аргументы `journalctl` | разбор `systemctl status`, PID-менеджмент |
 | `internal/xmrig` | `GET /2/summary` → нормализованные nullable-поля | POST/PUT, конфиг майнера |
 | `internal/p2pool` | чтение четырёх файлов Data API (обычные файлы, ≤ 1 MiB, retry 50 ms) | HTTP-сервер, консенсус |
@@ -38,8 +38,8 @@ XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero
 
 ## Ключевые инварианты
 
-1. **Панель никогда не владеет майнингом.** `q`, Ctrl-C, Esc, авария TUI не вызывают stop. Службы живут в systemd независимо от Monerizer (`SYS-01`).
-2. **Единственный владелец каждого параметра.** Адрес выплат, нода, sidechain — `p2pool.conf`; потоки, API — `xmrig.json`; пути бинарников — unit-файлы; что наблюдать — `monerizer.toml`. Monerizer пишет в чужой конфиг ровно в одном месте: `node select` меняет `host/rpc-port/zmq-port`.
+1. **Панель никогда не владеет майнингом.** `q`, Ctrl-C, Esc, авария TUI не вызывают stop. Службы живут в systemd независимо от Moneroid (`SYS-01`).
+2. **Единственный владелец каждого параметра.** Адрес выплат, нода, sidechain — `p2pool.conf`; потоки, API — `xmrig.json`; пути бинарников — unit-файлы; что наблюдать — `moneroid.toml`. Moneroid пишет в чужой конфиг ровно в одном месте: `node select` меняет `host/rpc-port/zmq-port`.
 3. **`null` ≠ `0`.** Отсутствующее знание — `null`, измеренный ноль — `0`; это видно в тексте, JSON и спарклайне.
 4. **Свежесть и сессия.** У файла есть возраст (mtime) и доказательство принадлежности текущему процессу (`RuntimeDirectory` + сравнение uptime); у HTTP — совпадение `api.id` и uptime с `ExecMainStartTimestampMonotonic`. Данные прошлого запуска не подтверждают health.
 5. **Следствия не выдаются за причины.** «API недоступен» ≠ «процесс упал», «служба active» ≠ «нода синхронизирована»; `sync_state` всегда `unknown`.
@@ -55,7 +55,7 @@ XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero
 
 ```sh
 make check      # gofmt, go vet, go test -race, статическая сборка linux/amd64
-make build      # ./monerizer с версией из git describe
+make build      # ./moneroid с версией из git describe
 ```
 
 Тесты не ходят в сеть и не вызывают systemctl; fixtures в `testdata/` — реальные ответы P2Pool 4.18 и XMRig 6.26.0 с заменёнными адресами.

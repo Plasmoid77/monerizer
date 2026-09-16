@@ -7,14 +7,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/Plasmoid77/monerizer/internal/ansi"
-	"github.com/Plasmoid77/monerizer/internal/status"
+	"github.com/Plasmoid77/moneroid/internal/ansi"
+	"github.com/Plasmoid77/moneroid/internal/status"
 )
 
 func (m Model) View() tea.View {
 	v := tea.NewView(m.render())
 	v.AltScreen = true
-	v.WindowTitle = "monerizer"
+	v.WindowTitle = "moneroid"
 	return v
 }
 
@@ -27,7 +27,7 @@ func (m Model) render() string {
 		w = minWidth
 	}
 	s := m.snap
-	title := " monerizer " + m.version + "   " + m.host
+	title := " moneroid " + m.version + "   " + m.host
 	if s == nil {
 		return m.fit(ansi.Banner(pad(title+"   collecting…", w))+"\n", w)
 	}
@@ -233,7 +233,7 @@ func list(title string, items []string, sel int) string {
 
 func (m Model) compact() string {
 	var b strings.Builder
-	b.WriteString("monerizer (terminal too small, need 80x24)\n")
+	b.WriteString("moneroid (terminal too small, need 80x24)\n")
 	if m.snap != nil {
 		for _, sv := range []status.Service{m.snap.Services.P2Pool, m.snap.Services.XMRig} {
 			fmt.Fprintf(&b, "%s %s\n", sv.Unit, sv.ActiveState)

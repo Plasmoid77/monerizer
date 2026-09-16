@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Plasmoid77/monerizer/internal/payouts"
-	"github.com/Plasmoid77/monerizer/internal/systemd"
+	"github.com/Plasmoid77/moneroid/internal/payouts"
+	"github.com/Plasmoid77/moneroid/internal/systemd"
 )
 
 func cmdPayouts(cfgPath string, args []string) int {
