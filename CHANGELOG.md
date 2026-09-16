@@ -1,9 +1,11 @@
 # Изменения
 
-## Не выпущено
+## v0.2.0 — 2026-09-16
 
-- `payouts [--json] [--since]` — выплаты из журнала P2Pool (PAY-01..03).
-- `node`: проба через SOCKS5 из `p2pool.conf`, ZMTP-рукопожатие, полная проверка каждого адреса, IPv6-литералы; `SIDECHAIN_BEHIND`/`SIDECHAIN_SYNC`; `examples/monerizer-msr.service`.
+- `payouts [--json] [--since]` — выплаты из журнала P2Pool (строки «got a payout of» / «didn't get a payout»), сумма и число блоков без доли (PAY-01..03, схема `payouts-v1`).
+- TUI: экран выплат по клавише `p` (последние 12, итог, `r` перечитать).
+- Время в панели и в `payouts` — локальная зона системы; в JSON по-прежнему RFC 3339 UTC.
+- `docs/troubleshooting.md`: раздел про фильтруемый аплинк и `socks5` в `p2pool.conf`.
 
 ## v0.1.0 — 2026-09-16
 
