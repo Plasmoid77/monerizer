@@ -115,13 +115,15 @@ func rpc(ctx context.Context, client *http.Client, addr string, port int, method
 }
 
 // Probe performs get_info, a 100-block get_block_headers_range (the call P2Pool
-// makes at start, which some filtered networks break) and a TCP connect to the ZMQ port.
-func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
+// makes at start, which some filtered networks break) and a ZMTP handshake with
+// the ZMQ port. d is the dialer for the ZMQ check (nil = direct); the HTTP client
+// carries its own.
+func Probe(ctx context.Context, client *http.Client, d Dialer, c Candidate) Result {
 	// Every resolved address gets the full check; the first fully usable one wins,
 	// otherwise the first that answered get_info is reported (Codex review 2026-09-16).
 	var first *Result
 	for _, addr := range resolve(ctx, c.Host) {
-		r := probeAddr(ctx, client, c, addr)
+		r := probeAddr(ctx, client, d, c, addr)
 		if r.Usable() {
 			return r
 		}
@@ -135,7 +137,7 @@ func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
 	return *first
 }
 
-func probeAddr(ctx context.Context, client *http.Client, c Candidate, addr string) Result {
+func probeAddr(ctx context.Context, client *http.Client, d Dialer, c Candidate, addr string) Result {
 	res := Result{Candidate: c, Addr: addr}
 	o, took, err := rpc(ctx, client, addr, c.RPC, "get_info", "{}")
 	if err != nil {
@@ -164,7 +166,7 @@ func probeAddr(ctx context.Context, client *http.Client, c Candidate, addr strin
 			res.Error = "headers: " + err.Error()
 		}
 	}
-	open := zmtpHandshake(res.Addr, c.ZMQ)
+	open := zmtpHandshake(ctx, d, res.Addr, c.ZMQ)
 	res.ZMQOpen = &open
 	return res
 }
@@ -172,9 +174,13 @@ func probeAddr(ctx context.Context, client *http.Client, c Candidate, addr strin
 // zmtpHandshake connects to the ZMQ port and exchanges the ZMTP greeting
 // signature (0xff, 8 bytes, 0x7f): an accepting TCP port is not proof of a
 // ZMQ publisher (xmr.privacy.cash, 2026-09-14).
-func zmtpHandshake(addr string, port int) bool {
-	d := net.Dialer{Timeout: ProbeTimeout}
-	conn, err := d.Dial("tcp", net.JoinHostPort(addr, strconv.Itoa(port)))
+func zmtpHandshake(ctx context.Context, d Dialer, addr string, port int) bool {
+	if d == nil {
+		d = DirectDialer
+	}
+	zctx, cancel := context.WithTimeout(ctx, ProbeTimeout)
+	defer cancel()
+	conn, err := d(zctx, "tcp", net.JoinHostPort(addr, strconv.Itoa(port)))
 	if err != nil {
 		return false
 	}
@@ -214,14 +220,14 @@ func resolve(ctx context.Context, host string) []string {
 
 // ProbeAll probes candidates in parallel and returns them ranked (NODE-02):
 // usable nodes first by latency, then the rest in input order.
-func ProbeAll(ctx context.Context, client *http.Client, cands []Candidate) []Result {
+func ProbeAll(ctx context.Context, client *http.Client, d Dialer, cands []Candidate) []Result {
 	results := make([]Result, len(cands))
 	var wg sync.WaitGroup
 	for i, c := range cands {
 		wg.Add(1)
 		go func(i int, c Candidate) {
 			defer wg.Done()
-			results[i] = Probe(ctx, client, c)
+			results[i] = Probe(ctx, client, d, c)
 		}(i, c)
 	}
 	wg.Wait()
@@ -235,20 +241,113 @@ func ProbeAll(ctx context.Context, client *http.Client, cands []Candidate) []Res
 	return results
 }
 
-// NewHTTPClient returns a client without proxy or redirects.
-func NewHTTPClient() *http.Client {
+// Dialer opens TCP connections; the default is a plain net.Dialer, the
+// alternative is SOCKS5 so probes take the same path as P2Pool's `socks5`.
+type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
+
+// DirectDialer dials without a proxy.
+func DirectDialer(ctx context.Context, network, addr string) (net.Conn, error) {
+	d := net.Dialer{Timeout: ProbeTimeout}
+	return d.DialContext(ctx, network, addr)
+}
+
+// SOCKS5Dialer returns a Dialer that issues a SOCKS5 CONNECT (no auth) through proxy.
+func SOCKS5Dialer(proxy string) Dialer {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, portStr, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, err
+		}
+		conn, err := DirectDialer(ctx, "tcp", proxy)
+		if err != nil {
+			return nil, fmt.Errorf("socks5 %s: %w", proxy, err)
+		}
+		if dl, ok := ctx.Deadline(); ok {
+			conn.SetDeadline(dl)
+		}
+		req := []byte{5, 1, 0} // version 5, one method: no auth
+		if _, err = conn.Write(req); err == nil {
+			buf := make([]byte, 2)
+			if _, err = io.ReadFull(conn, buf); err == nil && (buf[0] != 5 || buf[1] != 0) {
+				err = errors.New("socks5: no-auth method rejected")
+			}
+		}
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		req = []byte{5, 1, 0}
+		if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
+			req = append(append(req, 1), ip.To4()...)
+		} else if ip != nil {
+			req = append(append(req, 4), ip.To16()...)
+		} else {
+			req = append(append(req, 3, byte(len(host))), host...)
+		}
+		req = append(req, byte(port>>8), byte(port))
+		if _, err = conn.Write(req); err == nil {
+			head := make([]byte, 4)
+			if _, err = io.ReadFull(conn, head); err == nil {
+				if head[1] != 0 {
+					err = fmt.Errorf("socks5: connect refused (reply %d)", head[1])
+				} else {
+					skip := map[byte]int{1: 4, 4: 16}[head[3]]
+					if head[3] == 3 {
+						l := make([]byte, 1)
+						_, err = io.ReadFull(conn, l)
+						skip = int(l[0])
+					}
+					if err == nil {
+						_, err = io.ReadFull(conn, make([]byte, skip+2))
+					}
+				}
+			}
+		}
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		conn.SetDeadline(time.Time{})
+		return conn, nil
+	}
+}
+
+// NewHTTPClient returns a client without env proxy or redirects, dialing through d.
+func NewHTTPClient(d Dialer) *http.Client {
+	if d == nil {
+		d = DirectDialer
+	}
 	return &http.Client{
 		Timeout:       ProbeTimeout,
-		Transport:     &http.Transport{Proxy: nil, DisableKeepAlives: true},
+		Transport:     &http.Transport{Proxy: nil, DisableKeepAlives: true, DialContext: d},
 		CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirects are not followed") },
 	}
 }
 
 var nodeKeys = []string{"host", "rpc-port", "zmq-port"}
 
+// Params is the subset of the params-file Monerizer reads.
+type Params struct {
+	Node   Candidate
+	Socks5 string // `socks5 = IP:port`, empty when P2Pool connects directly
+}
+
+// Dialer returns the dialer matching how P2Pool connects.
+func (p Params) Dialer() Dialer {
+	if p.Socks5 == "" {
+		return DirectDialer
+	}
+	return SOCKS5Dialer(p.Socks5)
+}
+
 // ReadParams returns the node keys of a params-file, with P2Pool defaults for absent keys.
-func ReadParams(data []byte) Candidate {
-	c := Candidate{Host: "127.0.0.1", RPC: 18081, ZMQ: 18083}
+func ReadParams(data []byte) Params {
+	p := Params{Node: Candidate{Host: "127.0.0.1", RPC: 18081, ZMQ: 18083}}
+	c := &p.Node
 	for _, line := range strings.Split(string(data), "\n") {
 		k, v, ok := splitKV(line)
 		if !ok {
@@ -265,9 +364,11 @@ func ReadParams(data []byte) Candidate {
 			if n, err := strconv.Atoi(v); err == nil {
 				c.ZMQ = n
 			}
+		case "socks5":
+			p.Socks5 = v
 		}
 	}
-	return c
+	return p
 }
 
 func splitKV(line string) (string, string, bool) {

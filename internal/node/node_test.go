@@ -57,7 +57,7 @@ func TestProbe(t *testing.T) {
 	host, rpcs, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
 	rpc, _ := strconv.Atoi(rpcs)
 	zmq := ln.Addr().(*net.TCPAddr).Port
-	res := ProbeAll(context.Background(), NewHTTPClient(), []Candidate{{Host: host, RPC: rpc, ZMQ: 1}, {Host: host, RPC: rpc, ZMQ: zmq}, {Host: host, RPC: 1, ZMQ: zmq}})
+	res := ProbeAll(context.Background(), NewHTTPClient(nil), nil, []Candidate{{Host: host, RPC: rpc, ZMQ: 1}, {Host: host, RPC: rpc, ZMQ: zmq}, {Host: host, RPC: 1, ZMQ: zmq}})
 	if !res[0].Usable() || res[0].ZMQ != zmq || *res[0].Height != 1000 || !*res[0].HeadersOK {
 		t.Fatalf("first %+v", res[0])
 	}
@@ -73,11 +73,11 @@ func TestRewrite(t *testing.T) {
 	if out != want {
 		t.Fatalf("got %q\nwant %q", out, want)
 	}
-	if c := ReadParams([]byte(out)); c.Host != "new.example" || c.RPC != 18089 || c.ZMQ != 18083 {
-		t.Fatalf("read back %+v", c)
+	if p := ReadParams([]byte(out + "socks5 = 127.0.0.1:1080\n")); p.Node.Host != "new.example" || p.Node.RPC != 18089 || p.Node.ZMQ != 18083 || p.Socks5 != "127.0.0.1:1080" {
+		t.Fatalf("read back %+v", p)
 	}
-	if c := ReadParams(nil); c.Host != "127.0.0.1" || c.RPC != 18081 {
-		t.Fatalf("defaults %+v", c)
+	if p := ReadParams(nil); p.Node.Host != "127.0.0.1" || p.Node.RPC != 18081 || p.Socks5 != "" {
+		t.Fatalf("defaults %+v", p)
 	}
 	if d := Diff([]byte(in), []byte(out)); len(d) != 5 {
 		t.Fatalf("diff %v", d)
@@ -101,5 +101,63 @@ func TestWriteAtomic(t *testing.T) {
 	}
 	if err := WriteAtomic(filepath.Join(t.TempDir(), "missing"), nil); err == nil {
 		t.Fatal("missing file must not be created")
+	}
+}
+
+// TestSOCKS5Dialer runs a minimal SOCKS5 server that forwards to the test HTTP server.
+func TestSOCKS5Dialer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"jsonrpc":"2.0","id":"0","result":{"height":1000,"synchronized":true,"headers":[{"height":1}]}}`))
+	}))
+	defer srv.Close()
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 3)
+				io.ReadFull(c, buf)
+				c.Write([]byte{5, 0})
+				head := make([]byte, 4)
+				io.ReadFull(c, head)
+				var target string
+				switch head[3] {
+				case 1:
+					b := make([]byte, 6)
+					io.ReadFull(c, b)
+					target = net.JoinHostPort(net.IP(b[:4]).String(), strconv.Itoa(int(b[4])<<8|int(b[5])))
+				default:
+					c.Write([]byte{5, 8, 0, 1, 0, 0, 0, 0, 0, 0})
+					return
+				}
+				up, err := net.Dial("tcp", target)
+				if err != nil {
+					c.Write([]byte{5, 5, 0, 1, 0, 0, 0, 0, 0, 0})
+					return
+				}
+				defer up.Close()
+				c.Write([]byte{5, 0, 0, 1, 0, 0, 0, 0, 0, 0})
+				go io.Copy(up, c)
+				io.Copy(c, up)
+			}(c)
+		}
+	}()
+	host, rpcs, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+	rpc, _ := strconv.Atoi(rpcs)
+	d := SOCKS5Dialer(ln.Addr().String())
+	res := Probe(context.Background(), NewHTTPClient(d), d, Candidate{Host: host, RPC: rpc, ZMQ: 1})
+	if res.LatencyMs == nil || res.HeadersOK == nil || !*res.HeadersOK {
+		t.Fatalf("probe through socks5: %+v", res)
+	}
+	if res.ZMQOpen == nil || *res.ZMQOpen {
+		t.Fatalf("zmq on port 1 must be closed through socks5: %+v", res)
+	}
+	if _, err := SOCKS5Dialer("127.0.0.1:1")(context.Background(), "tcp", "1.2.3.4:80"); err == nil {
+		t.Fatal("dead proxy must fail")
 	}
 }

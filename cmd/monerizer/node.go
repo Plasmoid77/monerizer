@@ -56,7 +56,14 @@ func probeList(cfg *config.Config) ([]node.Result, int) {
 		fmt.Fprintf(os.Stderr, "%s: no candidates\n", cfg.P2Pool.NodesFile)
 		return nil, exitCheck
 	}
-	return node.ProbeAll(context.Background(), node.NewHTTPClient(), cands), exitOK
+	// Probe the way P2Pool connects: through its socks5 proxy when the params-file sets one.
+	var d node.Dialer = node.DirectDialer
+	if cfg.P2Pool.ParamsFile != "" {
+		if data, err := os.ReadFile(cfg.P2Pool.ParamsFile); err == nil {
+			d = node.ReadParams(data).Dialer()
+		}
+	}
+	return node.ProbeAll(context.Background(), node.NewHTTPClient(d), d, cands), exitOK
 }
 
 func nodeList(cfg *config.Config, args []string) int {

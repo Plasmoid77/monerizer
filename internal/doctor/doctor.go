@@ -300,8 +300,9 @@ func (r *runner) nodeCheck(ctx context.Context) {
 		r.add("NODE_RPC", "p2pool", Skip, "params_file: "+err.Error(), "")
 		return
 	}
-	c := node.ReadParams(data)
-	res := node.Probe(ctx, node.NewHTTPClient(), c)
+	p := node.ReadParams(data)
+	c, d := p.Node, p.Dialer()
+	res := node.Probe(ctx, node.NewHTTPClient(d), d, c)
 	switch {
 	case res.Error != "":
 		r.add("NODE_RPC", "p2pool", Warn, fmt.Sprintf("node %s:%d: %s", c.Host, c.RPC, res.Error), "check host/rpc-port in p2pool.conf or run monerizer node list")
