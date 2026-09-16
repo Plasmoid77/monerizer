@@ -16,6 +16,7 @@
 | `SOURCE_STALE` (`local/p2p` старше 180 s) | P2Pool завис или не пишет API | `monerizer logs p2pool`, `restart p2pool` |
 | `SOURCE_NOT_CURRENT_SESSION` | Файлы/API от другого процесса | Проверить, что нет второго P2Pool/XMRig; для сторонних units — `RuntimeDirectory` |
 | `ZMQ_ACTIVITY_OLD` | >600 s без ZMQ-событий | Нода без `--zmq-pub`, неверный `zmq-port` или нестабильный ZMQ у удалённой ноды (в журнале повторяющиеся `ZMQReader disconnected`) → `monerizer node list`, выбрать другую |
+| `SIDECHAIN_BEHIND` | Локальная sidechain ниже высоты peers | Первые ~10 минут после старта — норма (P2Pool качает и проверяет окно, в журнале растут `verified block`); если не догоняет — `monerizer logs p2pool`, нода/сеть |
 | `P2P_NO_CONNECTIONS` | Нет peers | Исходящие соединения на порт sidechain (mini 37888, main 37889, nano 37890) закрыты |
 | `HASHRATE_ZERO`, `XMRIG_DISCONNECTED` | XMRig не получает задания | P2Pool ещё синхронизируется (`SideChain SYNCHRONIZED` в журнале) или `pools[0].url` ≠ `stratum` P2Pool |
 | `CLOCK_UNCERTAIN` | mtime файла в будущем | Часы/NTP |

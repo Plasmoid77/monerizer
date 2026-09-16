@@ -107,6 +107,10 @@ func runtimeLevel(s *Snapshot) string {
 			s.addIssue("P2P_NO_CONNECTIONS", "error", "p2pool", SrcP2PoolP2P, "P2Pool has no P2P connections")
 			degrade()
 		}
+		if m.SidechainHeight != nil && m.PeerMaxHeight != nil && *m.SidechainHeight+SidechainLag < *m.PeerMaxHeight {
+			s.addIssue("SIDECHAIN_BEHIND", "error", "p2pool", SrcP2PoolPool, fmt.Sprintf("local sidechain height %d is behind peers (%d): still syncing or isolated; shares are not paid until it catches up", *m.SidechainHeight, *m.PeerMaxHeight))
+			degrade()
+		}
 		if m.ZMQAgeSeconds == nil {
 			unknown()
 		} else if *m.ZMQAgeSeconds > ZMQOldAfter.Seconds() {

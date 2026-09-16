@@ -82,6 +82,7 @@ func nodeList(cfg *config.Config, args []string) int {
 
 func printNodes(res []node.Result) {
 	fmt.Printf("%-36s %-6s %-6s %-8s %-6s %-10s %s\n", "HOST", "RPC", "ZMQ", "LATENCY", "SYNC", "HEIGHT", "NOTE")
+	// Addr is shown in --json; the table keeps the configured name.
 	for _, r := range res {
 		note := r.Error
 		switch {
@@ -126,6 +127,9 @@ func nodeSelect(cfg *config.Config, args []string) int {
 		return exitCheck
 	}
 	best := res[0].Candidate
+	if res[0].Addr != "" {
+		best.Host = res[0].Addr // the address that answered, not the DNS name (P2Pool takes the first DNS answer)
+	}
 	old, err := os.ReadFile(cfg.P2Pool.ParamsFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

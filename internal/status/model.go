@@ -101,6 +101,7 @@ type P2PoolMetrics struct {
 	P2PConnections         *int64     `json:"p2p_connections"`
 	P2PIncomingConnections *int64     `json:"p2p_incoming_connections"`
 	PeerListSize           *int64     `json:"peer_list_size"`
+	PeerMaxHeight          *int64     `json:"peer_max_height"` // highest sidechain height reported by connected peers
 	UptimeSeconds          *int64     `json:"uptime_seconds"`
 	ZMQAgeAtWriteSeconds   *int64     `json:"zmq_age_at_write_seconds"`
 	ZMQAgeSeconds          *float64   `json:"zmq_age_seconds"`

@@ -175,6 +175,10 @@ func TestHealthRules(t *testing.T) {
 			st.write(t, p2pool.FileP2P, []byte(`{"connections":"3","uptime":300,"zmq_last_active":1}`), st.now)
 		}, LevelUnknown, "FIELD_INVALID"},
 		{"event file broken does not change health", func(st *stand) { st.write(t, p2pool.FileStratum, []byte("nope"), st.now) }, LevelOK, ""},
+		{"sidechain behind peers", func(st *stand) {
+			st.write(t, p2pool.FileP2P, []byte(`{"connections":3,"uptime":300,"zmq_last_active":1,"peers":["O,1,1,P2Pool v4.18,14795201,1.2.3.4:37888"]}`), st.now)
+			st.write(t, p2pool.FilePool, []byte(`{"pool_statistics":{"hashRate":10000,"sidechainHeight":12,"sidechainDifficulty":100000}}`), st.now)
+		}, LevelDegraded, "SIDECHAIN_BEHIND"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -33,6 +33,10 @@ type Candidate struct {
 	ZMQ  int    `json:"zmq_port"`
 }
 
+// Result.Addr is the IP literal that answered; select writes it instead of the
+// hostname because P2Pool uses the first DNS answer, which may be an IPv6
+// address the host cannot reach (Zeonux, 2026-09-14).
+
 // ParseList parses nodes.txt: `host rpc_port zmq_port` per line, `#` comments (NODE-01).
 func ParseList(r io.Reader) ([]Candidate, error) {
 	var out []Candidate
@@ -65,6 +69,7 @@ type Result struct {
 	LatencyMs    *int64 `json:"latency_ms"`
 	Synchronized *bool  `json:"synchronized"`
 	Height       *int64 `json:"height"`
+	Addr         string `json:"addr,omitempty"`
 	HeadersOK    *bool  `json:"headers_ok"` // get_block_headers_range of 100 blocks succeeded
 	ZMQOpen      *bool  `json:"zmq_open"`
 	Error        string `json:"error,omitempty"`
@@ -76,12 +81,12 @@ func (r Result) Usable() bool {
 	return r.Synchronized != nil && *r.Synchronized && r.HeadersOK != nil && *r.HeadersOK && r.ZMQOpen != nil && *r.ZMQOpen
 }
 
-// rpc posts one JSON-RPC call with its own ProbeTimeout and returns the decoded body.
-func rpc(ctx context.Context, client *http.Client, c Candidate, method string, params string) (jsonx.Object, time.Duration, error) {
+// rpc posts one JSON-RPC call to addr:port with its own ProbeTimeout and returns the decoded body.
+func rpc(ctx context.Context, client *http.Client, addr string, port int, method string, params string) (jsonx.Object, time.Duration, error) {
 	ctx, cancel := context.WithTimeout(ctx, ProbeTimeout)
 	defer cancel()
 	body := strings.NewReader(`{"jsonrpc":"2.0","id":"0","method":"` + method + `","params":` + params + `}`)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s/json_rpc", net.JoinHostPort(c.Host, strconv.Itoa(c.RPC))), body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s/json_rpc", net.JoinHostPort(addr, strconv.Itoa(port))), body)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -113,7 +118,17 @@ func rpc(ctx context.Context, client *http.Client, c Candidate, method string, p
 // makes at start, which some filtered networks break) and a TCP connect to the ZMQ port.
 func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
 	res := Result{Candidate: c}
-	o, took, err := rpc(ctx, client, c, "get_info", "{}")
+	var (
+		o    jsonx.Object
+		took time.Duration
+		err  error
+	)
+	for _, addr := range resolve(ctx, c.Host) {
+		if o, took, err = rpc(ctx, client, addr, c.RPC, "get_info", "{}"); err == nil {
+			res.Addr = addr
+			break
+		}
+	}
 	if err != nil {
 		res.Error = err.Error()
 		return res
@@ -129,7 +144,7 @@ func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
 		}
 	}
 	if res.Height != nil && *res.Height > 100 {
-		h, _, err := rpc(ctx, client, c, "get_block_headers_range", fmt.Sprintf(`{"start_height":%d,"end_height":%d}`, *res.Height-101, *res.Height-1))
+		h, _, err := rpc(ctx, client, res.Addr, c.RPC, "get_block_headers_range", fmt.Sprintf(`{"start_height":%d,"end_height":%d}`, *res.Height-101, *res.Height-1))
 		ok := err == nil
 		if ok {
 			_, fe := h.Index(0, "result", "headers")
@@ -140,16 +155,52 @@ func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
 			res.Error = "headers: " + err.Error()
 		}
 	}
-	zctx, zcancel := context.WithTimeout(context.Background(), ProbeTimeout) // own budget, NODE-02
-	defer zcancel()
-	d := net.Dialer{}
-	conn, err := d.DialContext(zctx, "tcp", net.JoinHostPort(c.Host, strconv.Itoa(c.ZMQ)))
-	open := err == nil
-	if open {
-		conn.Close()
-	}
+	open := zmtpHandshake(res.Addr, c.ZMQ)
 	res.ZMQOpen = &open
 	return res
+}
+
+// zmtpHandshake connects to the ZMQ port and exchanges the ZMTP greeting
+// signature (0xff, 8 bytes, 0x7f): an accepting TCP port is not proof of a
+// ZMQ publisher (xmr.privacy.cash, 2026-09-14).
+func zmtpHandshake(addr string, port int) bool {
+	d := net.Dialer{Timeout: ProbeTimeout}
+	conn, err := d.Dial("tcp", net.JoinHostPort(addr, strconv.Itoa(port)))
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(ProbeTimeout))
+	if _, err := conn.Write([]byte{0xff, 0, 0, 0, 0, 0, 0, 0, 1, 0x7f}); err != nil {
+		return false
+	}
+	buf := make([]byte, 10)
+	if _, err := io.ReadFull(conn, buf); err != nil {
+		return false
+	}
+	return buf[0] == 0xff && buf[9] == 0x7f
+}
+
+// resolve returns the host's addresses, IPv4 first; a literal is returned as is.
+func resolve(ctx context.Context, host string) []string {
+	if ip := net.ParseIP(host); ip != nil {
+		return []string{host}
+	}
+	rctx, cancel := context.WithTimeout(ctx, ProbeTimeout)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupIPAddr(rctx, host)
+	if err != nil || len(ips) == 0 {
+		return []string{host}
+	}
+	var v4, v6 []string
+	for _, ip := range ips {
+		if ip.IP.To4() != nil {
+			v4 = append(v4, ip.IP.String())
+		} else {
+			v6 = append(v6, ip.IP.String())
+		}
+	}
+	return append(v4, v6...)
 }
 
 // ProbeAll probes candidates in parallel and returns them ranked (NODE-02):

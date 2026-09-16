@@ -37,6 +37,20 @@ func TestProbe(t *testing.T) {
 	defer srv.Close()
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer ln.Close()
+	go func() { // minimal ZMTP responder
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 10)
+				io.ReadFull(c, buf)
+				c.Write([]byte{0xff, 0, 0, 0, 0, 0, 0, 0, 1, 0x7f})
+			}(c)
+		}
+	}()
 	host, rpcs, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
 	rpc, _ := strconv.Atoi(rpcs)
 	zmq := ln.Addr().(*net.TCPAddr).Port

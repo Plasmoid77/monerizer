@@ -55,7 +55,7 @@ API требует включения в нативном конфиге; баз
 | `zmq_age_at_write_seconds` | `zmq_last_active` | секунд с последней ZMQ-активности на момент записи |
 | `zmq_age_seconds` | предыдущая величина + возраст файла | оценка текущего возраста, только при корректных часах |
 
-Upstream также выдаёт `peers` как массив строк; v1 их не разбирает. Запись происходит номинально раз в 60 секунд. Наличие connections не доказывает согласованность sidechain, полную синхронизацию или пригодность каждого peer. [p2p_server.cpp](https://github.com/SChernykh/p2pool/blob/9b7395b8c97e7705a138dda2f4edef6b91eebe5f/src/p2p_server.cpp#L1773)
+Upstream также выдаёт `peers` как массив строк `dir,ping,?,version,height,ip:port`; v1 берёт из них только максимальную высоту (`peer_max_height`) для `SIDECHAIN_BEHIND`. Запись происходит номинально раз в 60 секунд. Наличие connections не доказывает согласованность sidechain, полную синхронизацию или пригодность каждого peer. [p2p_server.cpp](https://github.com/SChernykh/p2pool/blob/9b7395b8c97e7705a138dda2f4edef6b91eebe5f/src/p2p_server.cpp#L1773)
 
 ## 4. P2Pool: событийный local/stratum
 
@@ -101,7 +101,7 @@ Upstream также выдаёт `peers` как массив строк; v1 их
 
 В snapshot все числовые метрики из таблиц nullable; boolean `connected` nullable. Для v1 не нужны поля MSR, wallet, payout, worker-list или версия P2Pool: их отсутствие является границей функции. `sidechain=null` и `sync_state="unknown"` заданы явно. Версию P2Pool пользователь видит при ручной проверке бинарника/журнала.
 
-Обязательные причины: `SOURCE_UNAVAILABLE`, `SOURCE_STALE`, `SOURCE_INVALID`, `FIELD_INVALID`, `PERMISSION_DENIED`, `UNIT_NOT_FOUND`, `UNIT_FAILED`, `UNIT_MASKED`, `UNIT_NOT_ACTIVE`, `UNIT_DISABLED`, `SOURCE_SESSION_UNKNOWN`, `SOURCE_NOT_CURRENT_SESSION` (доказанное несоответствие uptime), `SOURCE_ID_MISMATCH`, `CLOCK_UNCERTAIN`, `XMRIG_DISCONNECTED`, `HASHRATE_ZERO`, `P2P_NO_CONNECTIONS`, `ZMQ_ACTIVITY_OLD`, `NATIVE_CONFIG_NOT_VALIDATED`, `DEPENDENCIES_DIFFER`. Отсутствующее поле отражается null; `FIELD_INVALID` нужен для неверного типа/значения, не для каждого штатно пропущенного поля.
+Обязательные причины: `SOURCE_UNAVAILABLE`, `SOURCE_STALE`, `SOURCE_INVALID`, `FIELD_INVALID`, `PERMISSION_DENIED`, `UNIT_NOT_FOUND`, `UNIT_FAILED`, `UNIT_MASKED`, `UNIT_NOT_ACTIVE`, `UNIT_DISABLED`, `SOURCE_SESSION_UNKNOWN`, `SOURCE_NOT_CURRENT_SESSION` (доказанное несоответствие uptime), `SOURCE_ID_MISMATCH`, `CLOCK_UNCERTAIN`, `XMRIG_DISCONNECTED`, `HASHRATE_ZERO`, `P2P_NO_CONNECTIONS`, `SIDECHAIN_BEHIND`, `ZMQ_ACTIVITY_OLD`, `NATIVE_CONFIG_NOT_VALIDATED`, `DEPENDENCIES_DIFFER`. Отсутствующее поле отражается null; `FIELD_INVALID` нужен для неверного типа/значения, не для каждого штатно пропущенного поля.
 
 Doctor JSON: `schema_version`, `collected_at`, `checks[]`, `summary`. Каждый check содержит `code`, `component`, `result` (`pass|warn|fail|skip`), `message`, `remedy` (строка либо null). Summary содержит counts `pass`, `warn`, `fail`, `skip`.
 

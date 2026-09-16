@@ -25,6 +25,8 @@ const (
 	ClockSkewMax     = 5 * time.Second
 	ZMQOldAfter      = 600 * time.Second
 	SessionTolerance = 5.0
+	// SidechainLag is how far the local sidechain may trail connected peers before SIDECHAIN_BEHIND.
+	SidechainLag = 100
 )
 
 // Collector gathers one Snapshot from systemd, XMRig and P2Pool independently.
@@ -187,6 +189,7 @@ func (c *Collector) applyP2Pool(s *Snapshot, files map[string]p2pool.File, now t
 		m.P2PConnections = r.Int("connections")
 		m.P2PIncomingConnections = r.Int("incoming_connections")
 		m.PeerListSize = r.Int("peer_list_size")
+		m.PeerMaxHeight = peerMaxHeight(o)
 		m.UptimeSeconds = r.Int("uptime")
 		m.ZMQAgeAtWriteSeconds = r.Int("zmq_last_active")
 		if m.ZMQAgeAtWriteSeconds != nil && p2p.AgeSeconds != nil {
@@ -290,6 +293,33 @@ func (c *Collector) p2poolSession(s *Snapshot, fileUptime *int64, fileAge *float
 		return "SOURCE_SESSION_UNKNOWN"
 	}
 	return ""
+}
+
+// peerMaxHeight reads the height field of `local/p2p` peer strings
+// ("O,44,94,P2Pool v4.9.1,14795198,84.196.182.49:37888"); nil when absent.
+func peerMaxHeight(o jsonx.Object) *int64 {
+	v, ok := o["peers"].([]any)
+	if !ok {
+		return nil
+	}
+	var max int64 = -1
+	for _, p := range v {
+		s, ok := p.(string)
+		if !ok {
+			continue
+		}
+		f := strings.Split(s, ",")
+		if len(f) < 5 {
+			continue
+		}
+		if h, err := strconv.ParseInt(f[4], 10, 64); err == nil && h > max {
+			max = h
+		}
+	}
+	if max < 0 {
+		return nil
+	}
+	return &max
 }
 
 // reader extracts fields from one Data API object, recording FIELD_INVALID

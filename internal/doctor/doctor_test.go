@@ -46,7 +46,7 @@ func run(ctx context.Context, name string, args ...string) ([]byte, []byte, erro
 func TestAllPass(t *testing.T) {
 	cfg, s := snapshot(t)
 	rep := Run(context.Background(), cfg, s, run)
-	if rep.Summary[Fail] != 0 || rep.Summary[Warn] != 0 || rep.Summary[Pass] != 26 || rep.Summary[Skip] != 3 {
+	if rep.Summary[Fail] != 0 || rep.Summary[Warn] != 0 || rep.Summary[Pass] != 26 || rep.Summary[Skip] != 4 {
 		t.Fatalf("summary %v checks %+v", rep.Summary, rep.Checks)
 	}
 }

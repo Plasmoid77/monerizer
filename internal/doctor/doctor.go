@@ -142,7 +142,7 @@ func (r *runner) systemdChecks() {
 func (r *runner) p2poolChecks() {
 	s := r.snap
 	if s.Services.P2Pool.ActiveState != "active" {
-		for _, c := range []string{"DATA_API_DIR", "DATA_API_P2P", "DATA_API_EVENT_FILES", "P2P_CONNECTIONS", "ZMQ_ACTIVITY"} {
+		for _, c := range []string{"DATA_API_DIR", "DATA_API_P2P", "DATA_API_EVENT_FILES", "P2P_CONNECTIONS", "SIDECHAIN_SYNC", "ZMQ_ACTIVITY"} {
 			r.add(c, "p2pool", Skip, "P2Pool service is not active", "")
 		}
 		return
@@ -181,6 +181,14 @@ func (r *runner) p2poolChecks() {
 		r.add("P2P_CONNECTIONS", "p2pool", Warn, "no P2P connections", "check outbound connectivity to the sidechain P2P port")
 	default:
 		r.add("P2P_CONNECTIONS", "p2pool", Pass, fmt.Sprintf("%d P2P connections", *c), "")
+	}
+	switch h, ph := s.P2Pool.SidechainHeight, s.P2Pool.PeerMaxHeight; {
+	case h == nil || ph == nil:
+		r.add("SIDECHAIN_SYNC", "p2pool", Skip, "sidechain or peer heights unknown", "")
+	case *h+status.SidechainLag < *ph:
+		r.add("SIDECHAIN_SYNC", "p2pool", Warn, fmt.Sprintf("local sidechain height %d, peers report %d", *h, *ph), "wait: P2Pool downloads and verifies the PPLNS window after start (minutes); if it never catches up, check the node and monerizer logs p2pool")
+	default:
+		r.add("SIDECHAIN_SYNC", "p2pool", Pass, fmt.Sprintf("sidechain height %d matches peers", *h), "")
 	}
 	switch a := s.P2Pool.ZMQAgeSeconds; {
 	case a == nil:
