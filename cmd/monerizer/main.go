@@ -27,6 +27,7 @@ const usage = `Usage:
   monerizer [--config PATH] restart [all|p2pool|xmrig]
   monerizer [--config PATH] logs [--follow] [--lines N] [all|p2pool|xmrig]
   monerizer [--config PATH] doctor [--json]
+  monerizer [--config PATH] payouts [--json] [--since TIME]
   monerizer [--config PATH] node list [--json]
   monerizer [--config PATH] node select [--dry-run]
   monerizer [--config PATH] config path
@@ -91,6 +92,8 @@ func run(args []string) int {
 		return cmdDoctor(*cfgPath, rest[1:])
 	case "node":
 		return cmdNode(*cfgPath, rest[1:])
+	case "payouts":
+		return cmdPayouts(*cfgPath, rest[1:])
 	case "tui":
 		return cmdTUI(*cfgPath, rest[1:])
 	}

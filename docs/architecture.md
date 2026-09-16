@@ -30,6 +30,7 @@ XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero
 | `internal/status` | модель `Snapshot`, сбор, свежесть, привязка данных к сессии процесса, правила health | хранение истории |
 | `internal/doctor` | 31 read-only проверка над тем же `Snapshot` + journal/token/clock/node | автопочинку |
 | `internal/node` | проба нод (`get_info`, `get_block_headers_range`, ZMTP-рукопожатие, при необходимости через SOCKS5), замена трёх ключей в `p2pool.conf` | выбор ноды «на лету» |
+| `internal/payouts` | строки «got a payout of» из журнала через `journalctl -g` (единственное чтение логов) | баланс, кошелёк |
 | `internal/tui` | Bubble Tea-панель над тем же `Collector`; меню control; `journalctl -f` через `tea.ExecProcess` | собственный сбор данных |
 
 Интерфейсы введены только на границах с внешним миром: `systemd.Runner` (запуск команд), `http.Client`, файловая система, часы (`Now`, `Monotonic`). Поэтому весь `internal/status` тестируется на fixtures без systemctl и сети (`testdata/`).

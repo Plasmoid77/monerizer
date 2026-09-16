@@ -1,0 +1,89 @@
+// Package payouts lists P2Pool payout events from the unit journal (ТЗ §6.2).
+// This is the one place Monerizer reads log lines: payouts are events P2Pool
+// reports nowhere else, not metrics.
+package payouts
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/Plasmoid77/monerizer/internal/systemd"
+)
+
+// P2Pool 4.18, src/p2pool.cpp: "Your wallet <addr> got a payout of <int>.<12 digits> XMR in block <height>".
+var (
+	payoutRe   = regexp.MustCompile(`got a payout of (\d+)\.(\d{12}) XMR in block (\d+)`)
+	noPayoutRe = regexp.MustCompile(`didn't get a payout in block (\d+)`)
+)
+
+const atomicPerXMR = 1_000_000_000_000
+
+type Payout struct {
+	At          time.Time `json:"at"`
+	AtomicUnits uint64    `json:"atomic_units"`
+	XMR         string    `json:"xmr"` // as logged, 12 decimals
+	Block       uint64    `json:"block"`
+}
+
+type Report struct {
+	SchemaVersion    int      `json:"schema_version"`
+	Unit             string   `json:"unit"`
+	Payouts          []Payout `json:"payouts"`
+	TotalAtomicUnits uint64   `json:"total_atomic_units"`
+	TotalXMR         string   `json:"total_xmr"`
+	BlocksWithout    int      `json:"blocks_without_payout"` // pool blocks found while we had no share in the PPLNS window
+}
+
+// Fetch asks journald for the matching lines only (-g is evaluated by journald).
+func Fetch(ctx context.Context, run systemd.Runner, unit, since string) (*Report, error) {
+	args := []string{"--no-pager", "-q", "-o", "short-iso", "-u", unit, "-g", "got a payout of|didn't get a payout in block"}
+	if since != "" {
+		args = append(args, "--since", since)
+	}
+	out, stderr, err := run(ctx, "journalctl", args...)
+	if err != nil {
+		// journalctl exits 1 with nothing on stderr when no entry matches -g.
+		var ee *exec.ExitError
+		if !(errors.As(err, &ee) && ee.ExitCode() == 1 && len(strings.TrimSpace(string(stderr))) == 0) {
+			return nil, fmt.Errorf("journalctl: %w: %s", err, strings.TrimSpace(string(stderr)))
+		}
+	}
+	return Parse(unit, string(out)), nil
+}
+
+// Parse extracts payouts from `journalctl -o short-iso` output.
+func Parse(unit, out string) *Report {
+	r := &Report{SchemaVersion: 1, Unit: unit, Payouts: []Payout{}}
+	for _, line := range strings.Split(out, "\n") {
+		if m := payoutRe.FindStringSubmatch(line); m != nil {
+			whole, _ := strconv.ParseUint(m[1], 10, 64)
+			frac, _ := strconv.ParseUint(m[2], 10, 64)
+			block, _ := strconv.ParseUint(m[3], 10, 64)
+			p := Payout{AtomicUnits: whole*atomicPerXMR + frac, XMR: m[1] + "." + m[2], Block: block}
+			if ts, _, ok := strings.Cut(line, " "); ok && ts != "" {
+				if t, err := time.Parse("2006-01-02T15:04:05-0700", ts); err == nil {
+					p.At = t.UTC()
+				} else if t, err := time.Parse("2006-01-02T15:04:05Z07:00", ts); err == nil {
+					p.At = t.UTC()
+				}
+			}
+			r.Payouts = append(r.Payouts, p)
+			r.TotalAtomicUnits += p.AtomicUnits
+		} else if noPayoutRe.MatchString(line) {
+			r.BlocksWithout++
+		}
+	}
+	r.TotalXMR = FormatXMR(r.TotalAtomicUnits)
+	return r
+}
+
+// FormatXMR prints atomic units as P2Pool does: integer part, 12 decimals.
+func FormatXMR(a uint64) string {
+	return fmt.Sprintf("%d.%012d", a/atomicPerXMR, a%atomicPerXMR)
+}

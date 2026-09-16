@@ -21,6 +21,7 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
 | `monerizer start\|stop\|restart [all\|p2pool\|xmrig]` | Управление через systemd; после операции печатает фактическое состояние |
 | `monerizer logs [--follow] [--lines N] [target]` | `journalctl` по точным unit-именам |
 | `monerizer doctor [--json]` | 30 проверок: units, зависимости, права, API, свежесть, нода |
+| `monerizer payouts [--json] [--since TIME]` | Выплаты из журнала P2Pool: время, сумма, блок, итог; адрес кошелька не выводится |
 | `monerizer node list` / `node select [--dry-run]` | Проба нод из `nodes.txt` (RPC latency, sync, ZMQ-порт); `select` переписывает `host/rpc-port/zmq-port` в `p2pool.conf` |
 | `monerizer config path`, `version` | Служебные |
 
