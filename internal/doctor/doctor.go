@@ -183,6 +183,8 @@ func (r *runner) p2poolChecks() {
 		r.add("P2P_CONNECTIONS", "p2pool", Pass, fmt.Sprintf("%d P2P connections", *c), "")
 	}
 	switch h, ph := s.P2Pool.SidechainHeight, s.P2Pool.PeerMaxHeight; {
+	case p2p.State != status.StateOK || p2p.ErrorCode != "" || s.Sources[status.SrcP2PoolPool].State != status.StateOK:
+		r.add("SIDECHAIN_SYNC", "p2pool", Skip, "local/p2p or pool/stats not trustworthy for this session", "")
 	case h == nil || ph == nil:
 		r.add("SIDECHAIN_SYNC", "p2pool", Skip, "sidechain or peer heights unknown", "")
 	case *h+status.SidechainLag < *ph:

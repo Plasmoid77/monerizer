@@ -18,7 +18,10 @@ func TestParseList(t *testing.T) {
 	if err != nil || len(c) != 2 || c[0].Host != "xmr.support" || c[1].RPC != 18089 {
 		t.Fatalf("%v %v", c, err)
 	}
-	for _, bad := range []string{"host 1", "host abc 18083", "http://x 18081 18083", "h 0 1"} {
+	if c, err := ParseList(strings.NewReader("2001:db8::1 18081 18083\n")); err != nil || c[0].Host != "2001:db8::1" {
+		t.Fatalf("IPv6 literal: %v %v", c, err)
+	}
+	for _, bad := range []string{"host 1", "host abc 18083", "http://x 18081 18083", "h 0 1", "a:b 18081 18083"} {
 		if _, err := ParseList(strings.NewReader(bad)); err == nil {
 			t.Errorf("%q: expected error", bad)
 		}

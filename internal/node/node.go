@@ -55,7 +55,7 @@ func ParseList(r io.Reader) ([]Candidate, error) {
 		}
 		rpc, err1 := strconv.Atoi(f[1])
 		zmq, err2 := strconv.Atoi(f[2])
-		if err1 != nil || err2 != nil || rpc < 1 || rpc > 65535 || zmq < 1 || zmq > 65535 || strings.ContainsAny(f[0], "/@:") {
+		if err1 != nil || err2 != nil || rpc < 1 || rpc > 65535 || zmq < 1 || zmq > 65535 || strings.ContainsAny(f[0], "/@") || (strings.Contains(f[0], ":") && net.ParseIP(f[0]) == nil) {
 			return nil, fmt.Errorf("line %d: invalid host or ports", n)
 		}
 		out = append(out, Candidate{Host: f[0], RPC: rpc, ZMQ: zmq})
@@ -117,18 +117,27 @@ func rpc(ctx context.Context, client *http.Client, addr string, port int, method
 // Probe performs get_info, a 100-block get_block_headers_range (the call P2Pool
 // makes at start, which some filtered networks break) and a TCP connect to the ZMQ port.
 func Probe(ctx context.Context, client *http.Client, c Candidate) Result {
-	res := Result{Candidate: c}
-	var (
-		o    jsonx.Object
-		took time.Duration
-		err  error
-	)
+	// Every resolved address gets the full check; the first fully usable one wins,
+	// otherwise the first that answered get_info is reported (Codex review 2026-09-16).
+	var first *Result
 	for _, addr := range resolve(ctx, c.Host) {
-		if o, took, err = rpc(ctx, client, addr, c.RPC, "get_info", "{}"); err == nil {
-			res.Addr = addr
-			break
+		r := probeAddr(ctx, client, c, addr)
+		if r.Usable() {
+			return r
+		}
+		if first == nil || (first.LatencyMs == nil && r.LatencyMs != nil) {
+			first = &r
 		}
 	}
+	if first == nil {
+		return Result{Candidate: c, Error: "no address"}
+	}
+	return *first
+}
+
+func probeAddr(ctx context.Context, client *http.Client, c Candidate, addr string) Result {
+	res := Result{Candidate: c, Addr: addr}
+	o, took, err := rpc(ctx, client, addr, c.RPC, "get_info", "{}")
 	if err != nil {
 		res.Error = err.Error()
 		return res
