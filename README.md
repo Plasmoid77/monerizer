@@ -1,5 +1,7 @@
 # Monerizer
 
+*Minimal CLI/TUI to run one P2Pool + XMRig pair under systemd on Linux: status, health, doctor, logs, start/stop, node probing. Single static binary, upstream programs stay untouched. Docs are in Russian; see `docs/architecture.md` for a map of the code.*
+
 Маленький CLI/TUI для эксплуатации одной пары **P2Pool + XMRig** под systemd на Linux. Один бинарник без зависимостей; майнеры остаются штатными upstream-программами со своими нативными конфигами и обновляются независимо. Monerizer ничего не майнит, не хранит и не переписывает — только `systemctl`, `journalctl`, HTTP API XMRig и файлы Data API P2Pool.
 
 ```text
@@ -22,7 +24,7 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
 | `monerizer node list` / `node select [--dry-run]` | Проба нод из `nodes.txt` (RPC latency, sync, ZMQ-порт); `select` переписывает `host/rpc-port/zmq-port` в `p2pool.conf` |
 | `monerizer config path`, `version` | Служебные |
 
-Границы (намеренно): нет установщика бинарников, автообновлений, базы данных, web-UI, управления `monerod`, нескольких стеков, настройки ядра/MSR/hugepages. Полный перечень — в [ТЗ](docs/superpowers/specs/2026-09-11-monerizer-design.md).
+Границы (намеренно): нет установщика бинарников, автообновлений, базы данных, web-UI, управления `monerod`, нескольких стеков, настройки ядра/MSR/hugepages. Полный перечень — в [ТЗ](docs/spec.md).
 
 ## Требования
 
@@ -47,11 +49,18 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
 - `node select` пишет в `p2pool.conf` → `sudo`.
 - Каталог Data API содержит `local/console` с cookie TCP-консоли P2Pool: право чтения каталога равнозначно управлению P2Pool, поэтому группа одна.
 
+## Как это устроено и как сопровождать
+
+- [docs/architecture.md](docs/architecture.md) — поток данных, пакеты, инварианты, health-правила.
+- [AGENTS.md](AGENTS.md) — правила изменений для людей и ИИ-агентов, известные ловушки.
+- [CHANGELOG.md](CHANGELOG.md) · релизы — на GitHub, `sha256sum -c SHA256SUMS`.
+- `make check` — gofmt, vet, тесты (без сети и systemctl), статическая сборка; то же делает CI.
+
 ## Документы
 
 - [Установка](docs/install.md) · [Диагностика](docs/troubleshooting.md) · [Обновление upstream](docs/updating.md)
-- [ТЗ v1](docs/superpowers/specs/2026-09-11-monerizer-design.md) · [План реализации](docs/superpowers/plans/2026-09-11-monerizer-implementation.md)
+- [ТЗ v1](docs/spec.md) · [План реализации и история решений](docs/plan.md)
 - [Контракты источников](docs/research/upstream-contracts.md) · [Отчёт стенда №1](docs/research/stand-report-1.md) · [№2](docs/research/stand-report-2.md) · [Приёмка v1](docs/research/acceptance-report-v1.md)
-- [Исходный handoff](xmrig-p2pool-tui-ai-handoff-v2.md) — история; решения ТЗ имеют приоритет.
+- [Исходный handoff](docs/history/handoff-v2.md) — первоначальное исследование; решения ТЗ имеют приоритет.
 
 Лицензия — MIT. XMRig и P2Pool не входят в поставку и распространяются по своим лицензиям.

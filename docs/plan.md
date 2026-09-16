@@ -1,7 +1,7 @@
 # Monerizer v1 — план реализации
 
-Дата: 2026-09-11. Редакция: 0.2. Состояние на утро 2026-09-11: этапы 0–5 выполнены (стенд-ноутбук + VM Debian 13, см. §10 и [отчёт приёмки](../../research/acceptance-report-v1.md)); открыты systemd 249, A10/A20/A28.
-Основание: [ТЗ 0.3](../specs/2026-09-11-monerizer-design.md) и [контракты источников](../../research/upstream-contracts.md).
+Дата: 2026-09-11. Редакция: 0.2. Состояние на утро 2026-09-11: этапы 0–5 выполнены (стенд-ноутбук + VM Debian 13, см. §10 и [отчёт приёмки](research/acceptance-report-v1.md)); открыты systemd 249, A10/A20/A28.
+Основание: [ТЗ 0.3](spec.md) и [контракты источников](research/upstream-contracts.md).
 Этот план не разрешает установку служб и запуск майнинга; каждый этап начинается после явного подтверждения владельца.
 
 ## 0. Решения ревью ТЗ 0.2 → 0.3
@@ -48,7 +48,7 @@ Handoff v2 остаётся историческим документом; вс�
 4. Каркас каталогов из ТЗ §15: `cmd/monerizer`, `internal/{config,status,systemd,xmrig,p2pool,doctor,tui}`, `examples`, `systemd`, `testdata`, `docs`.
 5. `Makefile` с целями `build`, `test`, `vet`, `fmt-check`, `release` (см. §8). Без linters-фреймворков; `go vet` + `gofmt` обязательны.
 6. `LICENSE` (D2), `README.md` переписывается по INSTALL-04 в конце этапа 3; до этого остаётся статусной заглушкой.
-7. Документы: ТЗ и план остаются в `docs/superpowers/`; `docs/research/` — проверенные факты; `docs/schema/` — JSON-схемы после этапа 1.
+7. Документы: ТЗ и план остаются в `docs/`; `docs/research/` — проверенные факты; `docs/schema/` — JSON-схемы после этапа 1.
 
 Критерий: `make build test vet fmt-check` проходит на пустом каркасе; `monerizer version` печатает версию из `-ldflags`.
 

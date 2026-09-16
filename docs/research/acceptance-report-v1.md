@@ -27,7 +27,7 @@
 | A07 | pass — 0 и null различимы в тексте/JSON/спарклайне | unit-тест tui |
 | A08 | pass — новый InvocationID → разрыв графика | unit-тест tui |
 | A09 | pass — порядок start/stop одной командой | отчёт №2 |
-| A10 | частично — timeout/Ctrl-C коды 4/130 реализованы; на стенде не воспроизводились |
+| A10 | pass — SIGINT во время `restart`: сообщение о переданном systemd задании, код 130, итоговое состояние прочитано; задание завершилось (2026-09-16, ноутбук) |
 | A11 | pass — `nobody`: read-only работает, отказ виден (`PERMISSION_DENIED`), doctor warn JOURNAL_ACCESS | стенд |
 | A12 | pass — not-found, failed/start-limit-hit без разбора human-readable | стенд |
 | A13 | pass — один валидный JSON при полном отказе источников | стенд (nobody), VM |
@@ -45,7 +45,7 @@
 | A25 | pass — будущий mtime → `CLOCK_UNCERTAIN` | unit-тест |
 | A26 | pass — RuntimeDirectory удаляется/создаётся с нужными правами | отчёт №2, VM |
 | A27 | pass — ID mismatch / uptime mismatch → degraded | unit-тесты |
-| A28 | частично — doctor читает effective `After/Wants/Requires/BindsTo/PartOf`; drop-in на стенде не ставился |
+| A28 | pass — drop-in `Requires=` для xmrig → `UNIT_DEPENDENCIES warn DEPENDENCIES_DIFFER`; после удаления drop-in — pass (2026-09-16, ноутбук) |
 | A29 | pass — `node list`: таймауты, ранжирование, непригодные внизу | стенд |
 | A30 | pass — `node select`: только три ключа, owner/mode сохранены, dry-run не пишет | стенд |
 
@@ -53,7 +53,7 @@
 
 ## Открытое
 
-- A10 (timeout control), A20 (смена upstream-версии), A28 (drop-in) — не воспроизводились на живой системе.
+- A20 (смена upstream-версии): на 2026-09-16 актуальные релизы всё ещё P2Pool 4.18 и XMRig 6.26.0 — проверить при следующем релизе upstream (замена бинарника + `monerizer restart`).
 - XMRig `SHA256SUMS.sig` не проверялась подписью (ключ не импортировался).
 
 ## Zeonux (2026-09-14 … 16)
