@@ -72,7 +72,9 @@ install -o root -g root -m 0644 examples/polkit/50-monerizer.rules /etc/polkit-1
 printf 'vm.nr_hugepages = 1536\n' > /etc/sysctl.d/90-monerizer-hugepages.conf   # 3 GiB: XMRig ~1172 страниц + P2Pool light ~270
 ```
 
-Применяется надёжно только при загрузке (на работающей системе память фрагментирована, `sysctl -w` выделит лишь часть). P2Pool сам держит RandomX dataset (2 GB и ~1200 hugepages); в примере `p2pool.conf` включён `light-mode = 1`, чтобы страницы достались XMRig. Проверка: `monerizer doctor` → `XMRIG_HUGEPAGES pass`, в журнале XMRig `huge pages 100%`. Без этого hashrate ниже; Monerizer это только показывает.
+**MSR (только Intel, опционально).** Под непривилегированным пользователем XMRig пишет `FAILED TO APPLY MSR MOD`. Тот же эффект даёт oneshot-unit `examples/monerizer-msr.service` (нужен `msr-tools`): `wrmsr -a 0x1a4 0xf` до старта XMRig, откат в `ExecStop`. Измерено на Zeonux (2×Xeon E5-2683 v4): 13,8 → 14,4 kH/s (+4,5 %). Для AMD значения другие — не используйте этот unit.
+
+Hugepages применяются надёжно только при загрузке (на работающей системе память фрагментирована, `sysctl -w` выделит лишь часть). P2Pool сам держит RandomX dataset (2 GB и ~1200 hugepages); в примере `p2pool.conf` включён `light-mode = 1`, чтобы страницы достались XMRig. Проверка: `monerizer doctor` → `XMRIG_HUGEPAGES pass`, в журнале XMRig `huge pages 100%`. Без этого hashrate ниже; Monerizer это только показывает.
 
 ## Откат
 
