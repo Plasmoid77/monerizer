@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/Plasmoid77/moneroid/internal/config"
 	"github.com/Plasmoid77/moneroid/internal/payouts"
 	"github.com/Plasmoid77/moneroid/internal/status"
@@ -52,9 +50,12 @@ func TestMenuCancelIsDefault(t *testing.T) {
 func TestQuitNeverControls(t *testing.T) {
 	m := model()
 	for _, k := range []string{"q", "ctrl+c"} {
-		_, cmd := m.key(k)
-		if cmd == nil || cmd() != (tea.QuitMsg{}) {
+		next, cmd := m.key(k)
+		if cmd == nil || !next.(Model).quitting {
 			t.Fatalf("%s must quit", k)
+		}
+		if v := next.(Model).View(); v.Content != "" {
+			t.Fatalf("final frame after %s must be empty, got %q", k, v.Content)
 		}
 	}
 }

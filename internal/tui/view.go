@@ -12,6 +12,9 @@ import (
 )
 
 func (m Model) View() tea.View {
+	if m.quitting {
+		return tea.NewView("") // with the ClearScreen before Quit this leaves a clean screen even without an alternate screen
+	}
 	v := tea.NewView(m.render())
 	v.AltScreen = true
 	v.WindowTitle = "moneroid"

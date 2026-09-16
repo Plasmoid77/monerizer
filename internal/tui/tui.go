@@ -71,6 +71,7 @@ type Model struct {
 	payErr     string
 	version    string
 	host       string
+	quitting   bool // final frame is empty so terminals without an alternate screen end up clean
 }
 
 type snapshotMsg *status.Snapshot
@@ -82,6 +83,7 @@ type payoutsMsg struct {
 	err error
 }
 type payTickMsg struct{}
+type quitMsg struct{}
 
 func New(cfg *config.Config, c *status.Collector, version string) Model {
 	lang := strings.ToUpper(os.Getenv("LC_ALL") + os.Getenv("LC_CTYPE") + os.Getenv("LANG"))
@@ -182,6 +184,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logsMsg:
 		signal.Reset(os.Interrupt)
 		return m, m.refresh()
+	case quitMsg:
+		return m, tea.Quit
 	case payTickMsg:
 		return m, tea.Batch(m.fetchPayouts(), m.payTick())
 	case payoutsMsg:
@@ -200,7 +204,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) key(k string) (tea.Model, tea.Cmd) {
 	if k == "ctrl+c" || (k == "q" && m.mode == modeDashboard) {
-		return m, tea.Quit
+		m.quitting = true
+		// Erase the screen ourselves before Quit: inside an alternate screen this
+		// is invisible, and terminals without one (Linux console, SOL, screen
+		// without altscreen) are left clean like after htop. Raw output is
+		// flushed by the renderer ticker, so Quit follows one tick later.
+		return m, tea.Batch(tea.Raw("\x1b[H\x1b[2J"), tea.Tick(50*time.Millisecond, func(time.Time) tea.Msg { return quitMsg{} }))
 	}
 	switch m.mode {
 	case modeDashboard:

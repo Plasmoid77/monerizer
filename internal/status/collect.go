@@ -3,11 +3,15 @@ package status
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
+	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Plasmoid77/moneroid/internal/config"
@@ -252,6 +256,9 @@ func (c *Collector) fileSource(s *Snapshot, f p2pool.File, name string, now time
 			src.State, src.ErrorCode = StateInvalid, "SOURCE_INVALID"
 		}
 		src.Message = sanitize(f.Err.Error())
+		if src.ErrorCode == "PERMISSION_DENIED" {
+			src.Message += groupHint(c.Cfg.P2Pool.DataAPIDir)
+		}
 		return src
 	}
 	src.State, src.LastSuccessAt, src.SourceUpdatedAt = StateOK, tp(now), tp(f.ModTime.UTC())
@@ -367,6 +374,35 @@ func parseInt(s string) *int64 {
 
 func tp(t time.Time) *time.Time { return &t }
 func fp(f float64) *float64     { return &f }
+
+// groupHint explains the usual cause of PERMISSION_DENIED on the Data API: the
+// process does not carry the directory's group (usermod needs a new login).
+func groupHint(dir string) string {
+	st, err := os.Stat(dir)
+	if err != nil {
+		return ""
+	}
+	sys, ok := st.Sys().(*syscall.Stat_t)
+	if !ok {
+		return ""
+	}
+	gid := int(sys.Gid)
+	if gid == os.Getgid() {
+		return ""
+	}
+	if groups, err := os.Getgroups(); err == nil {
+		for _, g := range groups {
+			if g == gid {
+				return ""
+			}
+		}
+	}
+	name := strconv.Itoa(gid)
+	if g, err := user.LookupGroupId(name); err == nil {
+		name = g.Name
+	}
+	return fmt.Sprintf(" (this process is not in group %s: add the user to it and log in again)", name)
+}
 
 func isPermission(err error) bool {
 	return errors.Is(err, fs.ErrPermission) || strings.Contains(strings.ToLower(err.Error()), "access denied") || strings.Contains(strings.ToLower(err.Error()), "permission denied")
