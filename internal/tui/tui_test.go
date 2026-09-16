@@ -136,7 +136,7 @@ func TestRenderDashboardFillsScreen(t *testing.T) {
 	m.record()
 	m.pay = &payouts.Report{Payouts: []payouts.Payout{{At: time.Now(), XMR: "0.000411000000", Block: 1}}, TotalXMR: "0.000411000000", BlocksWithout: 12}
 	raw := m.View().Content
-	if !strings.Contains(raw, "\x1b[38;2;255;102;0m") {
+	if !strings.Contains(raw, "\x1b[38;2;255;128;0m") {
 		t.Fatal("dashboard must carry Monero orange")
 	}
 	v := regexp.MustCompile(`\x1b\[[0-9;]*m`).ReplaceAllString(raw, "")
