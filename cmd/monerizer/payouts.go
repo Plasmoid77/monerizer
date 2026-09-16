@@ -50,11 +50,11 @@ func cmdPayouts(cfgPath string, args []string) int {
 		fmt.Println()
 		return exitOK
 	}
-	fmt.Printf("%-25s %-18s %s\n", "TIME (UTC)", "XMR", "BLOCK")
+	fmt.Printf("%-25s %-18s %s\n", "TIME ("+time.Now().Format("MST")+")", "XMR", "BLOCK")
 	for _, p := range rep.Payouts {
 		at := "unknown"
 		if !p.At.IsZero() {
-			at = p.At.Format("2006-01-02 15:04:05")
+			at = p.At.Local().Format("2006-01-02 15:04:05")
 		}
 		fmt.Printf("%-25s %-18s %d\n", at, p.XMR, p.Block)
 	}

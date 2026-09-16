@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/Plasmoid77/monerizer/internal/config"
+	"github.com/Plasmoid77/monerizer/internal/payouts"
 	"github.com/Plasmoid77/monerizer/internal/status"
 )
 
@@ -98,4 +99,21 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestPayoutsView(t *testing.T) {
+	m := model()
+	m.mode = modePayouts
+	if v := m.payoutsView(); !contains(v, "loading") {
+		t.Fatalf("loading state: %q", v)
+	}
+	m.pay = &payouts.Report{Payouts: []payouts.Payout{{At: time.Date(2026, 9, 16, 0, 47, 51, 0, time.UTC), XMR: "0.001234567890", Block: 3763276}}, TotalXMR: "0.001234567890", BlocksWithout: 2}
+	v := m.payoutsView()
+	if !contains(v, "0.001234567890") || !contains(v, "3763276") || !contains(v, "2 pool blocks without") || !contains(v, time.Date(2026, 9, 16, 0, 47, 51, 0, time.UTC).Local().Format("2006-01-02 15:04:05")) {
+		t.Fatalf("view %q", v)
+	}
+	m2 := press(m, "esc")
+	if m2.mode != modeDashboard {
+		t.Fatal("esc must close payouts")
+	}
 }

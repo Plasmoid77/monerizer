@@ -24,10 +24,10 @@ func (m Model) render() string {
 	var b strings.Builder
 	s := m.snap
 	if s == nil {
-		b.WriteString("monerizer  collecting…\n\n  q quit  r refresh  s services  l logs  ? help\n")
+		b.WriteString("monerizer  collecting…\n\n  q quit  r refresh  s services  l logs  p payouts  ? help\n")
 		return b.String()
 	}
-	fmt.Fprintf(&b, "monerizer  %s  health: %s  (collected %s ago)\n\n", s.CollectedAt.Format("15:04:05 UTC"), strings.ToUpper(s.Health.Level), ago(s.CollectedAt))
+	fmt.Fprintf(&b, "monerizer  %s  health: %s  (collected %s ago)\n\n", s.CollectedAt.Local().Format("15:04:05 MST"), strings.ToUpper(s.Health.Level), ago(s.CollectedAt))
 	fmt.Fprintf(&b, "  %-28s %-18s %-9s %-8s %s\n", "SERVICE", "STATE", "ENABLED", "UPTIME", "RESTARTS")
 	for _, sv := range []status.Service{s.Services.P2Pool, s.Services.XMRig} {
 		state := sv.ActiveState + "/" + sv.SubState
@@ -65,7 +65,7 @@ func (m Model) render() string {
 		fmt.Fprintf(&b, "\n  %s\n", m.opResult)
 	}
 	b.WriteString("\n" + m.dialog())
-	b.WriteString("\n  q quit  r refresh  s services  l logs  ? help")
+	b.WriteString("\n  q quit  r refresh  s services  l logs  p payouts  ? help")
 	return b.String()
 }
 
@@ -87,9 +87,41 @@ func (m Model) dialog() string {
 		}
 		return fmt.Sprintf("  %s %s?\n  %s   %s   (←/→ then Enter, Esc cancels)\n", actions[m.action], units, c, o)
 	case modeHelp:
-		return "  Keys: q/Ctrl-C quit (miners keep running)  r refresh  s start/stop/restart  l journalctl -f (Ctrl-C returns)  Esc close\n  Colour carries no meaning; every state is written as text.\n"
+		return "  Keys: q/Ctrl-C quit (miners keep running)  r refresh  s start/stop/restart  l journalctl -f (Ctrl-C returns)  p payouts  Esc close\n  Colour carries no meaning; every state is written as text.\n"
+	case modePayouts:
+		return m.payoutsView()
 	}
 	return ""
+}
+
+// payoutsView lists the last payouts from the P2Pool journal in local time.
+func (m Model) payoutsView() string {
+	var b strings.Builder
+	b.WriteString("  Payouts (P2Pool journal)\n")
+	switch {
+	case m.payErr != "":
+		b.WriteString("    error: " + m.payErr + "\n")
+	case m.pay == nil:
+		b.WriteString("    loading…\n")
+	case len(m.pay.Payouts) == 0:
+		fmt.Fprintf(&b, "    none yet; %d pool blocks found without a share of yours in the PPLNS window\n", m.pay.BlocksWithout)
+	default:
+		rows := m.pay.Payouts
+		if len(rows) > 12 {
+			rows = rows[len(rows)-12:]
+		}
+		fmt.Fprintf(&b, "    %-20s %-16s %s\n", "TIME (local)", "XMR", "BLOCK")
+		for _, p := range rows {
+			at := "unknown"
+			if !p.At.IsZero() {
+				at = p.At.Local().Format("2006-01-02 15:04:05")
+			}
+			fmt.Fprintf(&b, "    %-20s %-16s %d\n", at, p.XMR, p.Block)
+		}
+		fmt.Fprintf(&b, "    %d payouts, total %s XMR; %d pool blocks without a payout\n", len(m.pay.Payouts), m.pay.TotalXMR, m.pay.BlocksWithout)
+	}
+	b.WriteString("  (r reload, Esc close)\n")
+	return b.String()
 }
 
 func list(title string, items []string, sel int) string {

@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/Plasmoid77/monerizer/internal/config"
+	"github.com/Plasmoid77/monerizer/internal/payouts"
 	"github.com/Plasmoid77/monerizer/internal/status"
 	"github.com/Plasmoid77/monerizer/internal/systemd"
 )
@@ -31,6 +32,7 @@ const (
 	modeAction         // choose start|stop|restart
 	modeConfirm
 	modeHelp
+	modePayouts
 )
 
 var (
@@ -63,12 +65,18 @@ type Model struct {
 	history    []point
 	lastInv    string
 	ascii      bool
+	pay        *payouts.Report
+	payErr     string
 }
 
 type snapshotMsg *status.Snapshot
 type tickMsg time.Time
 type opMsg struct{ text string }
 type logsMsg struct{ err error }
+type payoutsMsg struct {
+	rep *payouts.Report
+	err error
+}
 
 func New(cfg *config.Config, c *status.Collector) Model {
 	lang := strings.ToUpper(os.Getenv("LC_ALL") + os.Getenv("LC_CTYPE") + os.Getenv("LANG"))
@@ -113,6 +121,16 @@ func (m Model) control(verb string, units []string) tea.Cmd {
 	}
 }
 
+func (m Model) fetchPayouts() tea.Cmd {
+	run, unit := m.run, m.cfg.Services.P2Pool
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		rep, err := payouts.Fetch(ctx, run, unit, "")
+		return payoutsMsg{rep: rep, err: err}
+	}
+}
+
 func (m Model) units() []string {
 	switch targets[m.target] {
 	case "p2pool":
@@ -146,6 +164,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logsMsg:
 		signal.Reset(os.Interrupt)
 		return m, m.refresh()
+	case payoutsMsg:
+		m.pay, m.payErr = msg.rep, ""
+		if msg.err != nil {
+			m.payErr = msg.err.Error()
+		}
+		return m, nil
 	case tea.KeyPressMsg:
 		return m.key(msg.String())
 	}
@@ -172,6 +196,9 @@ func (m Model) key(k string) (tea.Model, tea.Cmd) {
 			m.mode, m.forLogs, m.target = modeTarget, true, 0
 		case "?":
 			m.mode = modeHelp
+		case "p":
+			m.mode, m.pay, m.payErr = modePayouts, nil, ""
+			return m, m.fetchPayouts()
 		}
 	case modeTarget:
 		switch k {
@@ -215,6 +242,12 @@ func (m Model) key(k string) (tea.Model, tea.Cmd) {
 			m.mode = modeDashboard
 		}
 	case modeHelp:
+		m.mode = modeDashboard
+	case modePayouts:
+		if k == "r" {
+			m.pay, m.payErr = nil, ""
+			return m, m.fetchPayouts()
+		}
 		m.mode = modeDashboard
 	}
 	return m, nil
