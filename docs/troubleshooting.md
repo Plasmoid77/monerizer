@@ -28,3 +28,16 @@
 | `tui`: «needs an interactive terminal» | Нет TTY | Использовать `status` |
 
 Что **не** является ошибкой: `sidechain shares 0 found` (share на mini находится редко), старые `rejected` без роста, `UNIT_DISABLED` (автозапуск просто не включён), `hashrate_15m = null` первые 15 минут.
+
+## Аплинк фильтрует трафик к нодам
+
+Симптом (Zeonux, 2026-09-14): `get_info` проходит, а ответы больше ~15 KB (`get_block_headers_range`, sync sidechain) виснут ко всем нодам независимо от порта и TLS; `node list` показывает `headers: context deadline exceeded`, P2Pool крутится в «Couldn't download block headers» или майнит собственную цепочку (`SIDECHAIN_BEHIND`).
+
+P2Pool умеет ходить через SOCKS5 (P2P, RPC и ZMQ): в `p2pool.conf`
+
+```
+socks5 = 127.0.0.1:1080
+socks5-proxy-type = plain
+```
+
+Источник прокси — любой хост с чистым интернетом, например `ssh -N -D 127.0.0.1:1080 user@host` (ключ на той стороне ограничьте `restrict,port-forwarding`), или VPN-клиент на самом хосте. `monerizer node list/select` и `doctor` при заданном `socks5` пробуют ноды через тот же прокси. Кэш изолированной цепочки после исправления сети лучше удалить: `monerizer stop p2pool; rm /var/lib/monerizer/p2pool/p2pool.cache; monerizer start p2pool`.
