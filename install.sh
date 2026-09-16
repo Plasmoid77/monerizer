@@ -10,6 +10,7 @@
 #   sh install.sh --uninstall [--purge]             # remove services (and configs/state with --purge)
 #
 # Existing files in /etc/moneroid are never overwritten; delete them to re-seed.
+# Verified downloads are cached in /var/cache/moneroid (MONEROID_CACHE); pre-fill it to install offline.
 set -eu
 
 MONEROID_VERSION=v0.4.1
@@ -20,7 +21,7 @@ P2POOL_SHA256=893691726b0218fe1883a7a326e2c69db4eb228fc72ba00c8adfa6be85b8a415 #
 XMRIG_VERSION=6.26.0
 XMRIG_SHA256=fc6f8ae5f64e4f17481f7e3be29a1c56949f216a998414188003eae1db20c9e5 # from SHA256SUMS
 
-usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 case " $* " in *" -h "* | *" --help "*) usage ;; esac
 [ "$(id -u)" -eq 0 ] || exec sudo -- sh "$0" --user "$(id -un)" "$@"
 
@@ -43,6 +44,19 @@ while [ $# -gt 0 ]; do
 done
 
 die() { echo "install.sh: $*" >&2; exit 1; }
+# i2pd.conf readers: comments stripped, "key = value" or "key=value", indented lines tolerated.
+i2pd_ep() { # section default-address:port → address:port
+	awk -v want="$1" -v def="$2" '
+		{ sub(/[#;].*/, ""); gsub(/^[ \t]+|[ \t]+$/, "") }
+		/^\[.*\]$/ { sec = substr($0, 2, length($0) - 2); next }
+		sec == want && $0 ~ /^(address|port)[ \t]*=/ { k = $0; sub(/[ \t]*=.*/, "", k); v = $0; sub(/^[^=]*=[ \t]*/, "", v); if (k == "address") a = v; else p = v }
+		END { split(def, d, ":"); if (a == "") a = d[1]; if (p == "") p = d[2]; print a ":" p }' /etc/i2pd/i2pd.conf 2>/dev/null || echo "$2"
+}
+i2pd_tdir() {
+	d=$(sed -n 's/^[ \t]*tunnelsdir[ \t]*=[ \t]*//p' /etc/i2pd/i2pd.conf 2>/dev/null | sed 's/[ \t]*[#;].*//; s/[ \t]*$//' | tail -1)
+	[ -n "$d" ] || { d=/etc/i2pd/tunnels.conf.d; [ -d $d ] || d=/etc/i2pd/tunnels.d; }
+	echo "$d"
+}
 command -v systemctl >/dev/null || die "systemd is required"
 [ "$(uname -m)" = x86_64 ] || die "only Linux x86_64 binaries are pinned here"
 
@@ -53,8 +67,8 @@ if [ $UNINSTALL = 1 ]; then
 		/etc/systemd/system/moneroid-msr.service /etc/polkit-1/rules.d/50-moneroid.rules \
 		/etc/sysctl.d/90-moneroid-hugepages.conf /usr/local/bin/moneroid /usr/local/bin/p2pool /usr/local/bin/xmrig
 	systemctl daemon-reload
-	if [ -e /etc/i2pd/tunnels.conf.d/moneroid.conf ] || [ -e /etc/i2pd/tunnels.d/moneroid.conf ]; then
-		rm -f /etc/i2pd/tunnels.conf.d/moneroid.conf /etc/i2pd/tunnels.d/moneroid.conf
+	if [ -e "$(i2pd_tdir)/moneroid.conf" ]; then
+		rm -f "$(i2pd_tdir)/moneroid.conf"
 		systemctl try-restart i2pd 2>/dev/null || true
 	fi
 	if [ $PURGE = 1 ]; then
@@ -83,22 +97,31 @@ if [ -n "$NODE" ]; then
 		|| die "--node must be HOST:RPC:ZMQ (IPv6 as [addr]:RPC:ZMQ), got $NODE"
 fi
 
+CACHE=${MONEROID_CACHE:-/var/cache/moneroid} # verified downloads are kept here; pre-fill it to install offline
 fetch() { # url dest
+	if [ "$2" != - ] && [ -f "$CACHE/${1##*/}" ] && [ ! -L "$CACHE/${1##*/}" ]; then cp "$CACHE/${1##*/}" "$2"; return; fi
 	if command -v curl >/dev/null; then curl -fsSL --retry 3 -o "$2" "$1"
 	elif command -v wget >/dev/null; then wget -q -O "$2" "$1"
 	else die "curl or wget is required"; fi
 }
-verify() { echo "$2  $1" | sha256sum -c --quiet - || die "checksum mismatch for $1"; }
+verify() { # file sha256 url
+	echo "$2  $1" | sha256sum -c --quiet - || die "checksum mismatch for $1"
+	# cache only into a root-owned, non-writable-by-others directory; install(1) replaces the target instead of following it
+	[ -d "$CACHE" ] || install -d -o root -g root -m 0755 "$CACHE" 2>/dev/null || return 0
+	[ "$(stat -c %u "$CACHE")" = 0 ] && [ -z "$(find "$CACHE" -maxdepth 0 -perm /022)" ] || { echo "note: $CACHE not root-owned 0755, not caching"; return 0; }
+	install -o root -g root -m 0644 "$1" "$CACHE/${3##*/}" 2>/dev/null || true
+}
 
 TMP=$(mktemp -d) && trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"
 echo "downloading Moneroid $MONEROID_VERSION, P2Pool $P2POOL_VERSION, XMRig $XMRIG_VERSION…"
-fetch "https://github.com/Plasmoid77/moneroid/releases/download/$MONEROID_VERSION/moneroid-$MONEROID_VERSION-linux-amd64" moneroid
-fetch "https://github.com/Plasmoid77/moneroid/releases/download/$MONEROID_VERSION/moneroid-$MONEROID_VERSION-extras.tar.gz" extras.tar.gz
-fetch "https://github.com/SChernykh/p2pool/releases/download/$P2POOL_VERSION/p2pool-$P2POOL_VERSION-linux-x64.tar.gz" p2pool.tar.gz
-fetch "https://github.com/xmrig/xmrig/releases/download/v$XMRIG_VERSION/xmrig-$XMRIG_VERSION-linux-static-x64.tar.gz" xmrig.tar.gz
-verify moneroid "$MONEROID_SHA256"; verify extras.tar.gz "$EXTRAS_SHA256"
-verify p2pool.tar.gz "$P2POOL_SHA256"; verify xmrig.tar.gz "$XMRIG_SHA256"
+URL_MONEROID="https://github.com/Plasmoid77/moneroid/releases/download/$MONEROID_VERSION/moneroid-$MONEROID_VERSION-linux-amd64"
+URL_EXTRAS="https://github.com/Plasmoid77/moneroid/releases/download/$MONEROID_VERSION/moneroid-$MONEROID_VERSION-extras.tar.gz"
+URL_P2POOL="https://github.com/SChernykh/p2pool/releases/download/$P2POOL_VERSION/p2pool-$P2POOL_VERSION-linux-x64.tar.gz"
+URL_XMRIG="https://github.com/xmrig/xmrig/releases/download/v$XMRIG_VERSION/xmrig-$XMRIG_VERSION-linux-static-x64.tar.gz"
+fetch "$URL_MONEROID" moneroid; fetch "$URL_EXTRAS" extras.tar.gz; fetch "$URL_P2POOL" p2pool.tar.gz; fetch "$URL_XMRIG" xmrig.tar.gz
+verify moneroid "$MONEROID_SHA256" "$URL_MONEROID"; verify extras.tar.gz "$EXTRAS_SHA256" "$URL_EXTRAS"
+verify p2pool.tar.gz "$P2POOL_SHA256" "$URL_P2POOL"; verify xmrig.tar.gz "$XMRIG_SHA256" "$URL_XMRIG"
 tar xzf extras.tar.gz
 tar xzf p2pool.tar.gz --strip-components=1 --wildcards '*/p2pool'
 tar xzf xmrig.tar.gz --strip-components=1 --wildcards '*/xmrig'
@@ -117,7 +140,9 @@ if [ -d /etc/polkit-1/rules.d ]; then install -o root -g root -m 0644 examples/p
 else echo "note: polkit without rules.d (< 0.106): start/stop need sudo"; fi
 
 seed() { if [ -e "/etc/moneroid/$1" ]; then echo "keeping existing /etc/moneroid/$1"; else install -o root -g "$2" -m "$3" "examples/$1" "/etc/moneroid/$1"; fi; }
+FRESH=0
 if [ ! -e /etc/moneroid/p2pool.conf ]; then
+	FRESH=1
 	sed -e "s/^wallet = .*/wallet = $WALLET/" -e '/^mini = 1$/d' examples/p2pool.conf > p2pool.conf
 	[ "$SIDECHAIN" = main ] || printf '%s = 1\n' "$SIDECHAIN" >> p2pool.conf
 	install -o root -g moneroid -m 0640 p2pool.conf /etc/moneroid/p2pool.conf
@@ -146,19 +171,21 @@ if [ $I2P = 1 ]; then
 	if grep -q '^nano = 1' /etc/moneroid/p2pool.conf; then p2p_port=37890
 	elif grep -q '^mini = 1' /etc/moneroid/p2pool.conf; then p2p_port=37888
 	else p2p_port=37889; fi
-	tdir=/etc/i2pd/tunnels.conf.d; [ -d $tdir ] || tdir=/etc/i2pd/tunnels.d; [ -d $tdir ] || mkdir -p $tdir
+	# An existing i2pd is left as is: only our own tunnel file is added; console/SOCKS endpoints are read from i2pd.conf.
+	console=$(i2pd_ep http 127.0.0.1:7070); socks=$(i2pd_ep socksproxy 127.0.0.1:4447)
+	tdir=$(i2pd_tdir); [ -d "$tdir" ] || mkdir -p "$tdir"
 	printf '[moneroid-p2pool]\ntype = server\nhost = 127.0.0.1\nport = %s\nkeys = moneroid-p2pool.dat\n' "$p2p_port" > moneroid-tunnel.conf
-	if ! cmp -s moneroid-tunnel.conf $tdir/moneroid.conf; then
-		install -o root -g root -m 0644 moneroid-tunnel.conf $tdir/moneroid.conf
+	if ! cmp -s moneroid-tunnel.conf "$tdir/moneroid.conf"; then
+		install -o root -g root -m 0644 moneroid-tunnel.conf "$tdir/moneroid.conf"
 		systemctl enable -q i2pd && systemctl restart i2pd
 	else systemctl enable -q --now i2pd; fi
-	b32=''; for _ in $(seq 1 30); do
-		b32=$(fetch "http://127.0.0.1:7070/?page=i2p_tunnels" - 2>/dev/null | grep -o '>moneroid-p2pool</a>[^<]*[a-z2-7]\{52\}\.b32\.i2p:'"$p2p_port" | grep -o '[a-z2-7]\{52\}\.b32\.i2p' | head -1) && [ -n "$b32" ] && break
+	b32=''; for _ in $(seq 1 60); do
+		b32=$(fetch "http://$console/?page=i2p_tunnels" - 2>/dev/null | grep -o '>moneroid-p2pool</a>[^<]*[a-z2-7]\{52\}\.b32\.i2p:'"$p2p_port" | grep -o '[a-z2-7]\{52\}\.b32\.i2p' | head -1) && [ -n "$b32" ] && break
 		sleep 2
 	done
-	[ -n "$b32" ] || die "i2pd did not report the moneroid-p2pool tunnel (web console 127.0.0.1:7070); check journalctl -u i2pd"
+	[ -n "$b32" ] || die "i2pd did not report the moneroid-p2pool tunnel (web console $console); check journalctl -u i2pd"
 	sed -i '/^socks5 = \|^socks5-proxy-type = \|^no-dns = \|^i2p-address = \|^p2p = \|^no-clearnet-p2p = /d' /etc/moneroid/p2pool.conf
-	printf '\n# P2Pool over I2P (install.sh --i2p): peers via i2pd SOCKS, node on LAN/localhost is reached directly.\nsocks5 = 127.0.0.1:4447\nsocks5-proxy-type = i2p\nno-dns = 1\ni2p-address = %s\np2p = 127.0.0.1:%s\nno-clearnet-p2p = 1\n' "$b32" "$p2p_port" >> /etc/moneroid/p2pool.conf
+	printf '\n# P2Pool over I2P (install.sh --i2p): peers via i2pd SOCKS, node on LAN/localhost is reached directly.\nsocks5 = %s\nsocks5-proxy-type = i2p\nno-dns = 1\ni2p-address = %s\np2p = 127.0.0.1:%s\nno-clearnet-p2p = 1\n' "$socks" "$b32" "$p2p_port" >> /etc/moneroid/p2pool.conf
 	echo "I2P: p2p tunnel $b32:$p2p_port, keys in /var/lib/i2pd/moneroid-p2pool.dat (back it up)"
 fi
 
@@ -186,7 +213,8 @@ if [ -n "$OPERATOR" ] && [ "$OPERATOR" != root ]; then
 	usermod -aG moneroid "$OPERATOR" && echo "added $OPERATOR to group moneroid (re-login to read the Data API)"
 fi
 
-if [ -z "$NODE" ] && grep -q '^host = 127.0.0.1$' /etc/moneroid/p2pool.conf; then
+# Only a freshly seeded config still points at the example node; an existing 127.0.0.1 may be a real local monerod.
+if [ $FRESH = 1 ] && [ -z "$NODE" ] && [ $I2P = 0 ]; then
 	echo "probing Monero nodes from /etc/moneroid/nodes.txt…"
 	moneroid node select || echo "no usable node found; set host/rpc-port/zmq-port in /etc/moneroid/p2pool.conf and run: moneroid start"
 fi
