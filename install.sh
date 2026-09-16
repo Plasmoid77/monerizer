@@ -6,14 +6,15 @@
 #   sh install.sh --wallet 4…                       # mini sidechain, node picked from nodes.txt
 #   sh install.sh --wallet 4… --node HOST:RPC:ZMQ   # fixed Monero node
 #   sh install.sh --wallet 4… --enable --hugepages  # autostart + sysctl/MSR tuning
+#   sh install.sh --wallet 4… --i2p --node LAN_IP:RPC:ZMQ   # P2Pool p2p over I2P (i2pd); node must be private or .b32.i2p
 #   sh install.sh --uninstall [--purge]             # remove services (and configs/state with --purge)
 #
 # Existing files in /etc/moneroid are never overwritten; delete them to re-seed.
 set -eu
 
-MONEROID_VERSION=v0.4.0
-MONEROID_SHA256=3b3e147442e3850eda1a8421ba015dc1735dbaad76eff2c2a8209dc040aa4121
-EXTRAS_SHA256=495444f5008cc1d1f4e80b26497c02188c027af82e69a310930f08a95f830e13
+MONEROID_VERSION=v0.4.1
+MONEROID_SHA256=4c35957bf5f1d857946cf7570a05c2e1a3a8603698af0a0c76b081fc7d182926
+EXTRAS_SHA256=73140e825b0ddc9336e87ce56ed97b416c4017332c053572cf7ed90cf6becba5
 P2POOL_VERSION=v4.18
 P2POOL_SHA256=893691726b0218fe1883a7a326e2c69db4eb228fc72ba00c8adfa6be85b8a415 # from sha256sums.txt.asc, signature checked
 XMRIG_VERSION=6.26.0
@@ -23,7 +24,7 @@ usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 case " $* " in *" -h "* | *" --help "*) usage ;; esac
 [ "$(id -u)" -eq 0 ] || exec sudo -- sh "$0" --user "$(id -un)" "$@"
 
-WALLET='' SIDECHAIN=mini NODE='' ENABLE=0 HUGEPAGES=0 OPERATOR=${SUDO_USER:-} UNINSTALL=0 PURGE=0
+WALLET='' SIDECHAIN=mini NODE='' ENABLE=0 HUGEPAGES=0 I2P=0 OPERATOR=${SUDO_USER:-} UNINSTALL=0 PURGE=0
 while [ $# -gt 0 ]; do
 	case $1 in
 	--wallet) WALLET=$2; shift ;;
@@ -32,6 +33,7 @@ while [ $# -gt 0 ]; do
 	--user) OPERATOR=$2; shift ;;
 	--enable) ENABLE=1 ;;
 	--hugepages) HUGEPAGES=1 ;;
+	--i2p) I2P=1 ;;
 	--uninstall) UNINSTALL=1 ;;
 	--purge) PURGE=1 ;;
 	-h | --help) usage ;;
@@ -46,13 +48,17 @@ command -v systemctl >/dev/null || die "systemd is required"
 
 UNITS="moneroid-p2pool.service moneroid-xmrig.service"
 if [ $UNINSTALL = 1 ]; then
-	systemctl disable --now $UNITS moneroid-msr.service 2>/dev/null || true
+	for u in $UNITS moneroid-msr.service; do systemctl disable --now "$u" 2>/dev/null || true; done # one missing unit must not skip the rest
 	rm -f /etc/systemd/system/moneroid-p2pool.service /etc/systemd/system/moneroid-xmrig.service \
 		/etc/systemd/system/moneroid-msr.service /etc/polkit-1/rules.d/50-moneroid.rules \
 		/etc/sysctl.d/90-moneroid-hugepages.conf /usr/local/bin/moneroid /usr/local/bin/p2pool /usr/local/bin/xmrig
 	systemctl daemon-reload
+	if [ -e /etc/i2pd/tunnels.conf.d/moneroid.conf ] || [ -e /etc/i2pd/tunnels.d/moneroid.conf ]; then
+		rm -f /etc/i2pd/tunnels.conf.d/moneroid.conf /etc/i2pd/tunnels.d/moneroid.conf
+		systemctl try-restart i2pd 2>/dev/null || true
+	fi
 	if [ $PURGE = 1 ]; then
-		rm -rf /etc/moneroid /var/lib/moneroid
+		rm -rf /etc/moneroid /var/lib/moneroid /var/lib/i2pd/moneroid-p2pool.dat
 		userdel moneroid-p2pool 2>/dev/null || true
 		userdel moneroid-xmrig 2>/dev/null || true
 		groupdel moneroid 2>/dev/null || true
@@ -61,9 +67,21 @@ if [ $UNINSTALL = 1 ]; then
 	exit 0
 fi
 
-case $WALLET in 4*) [ ${#WALLET} -eq 95 ] || die "--wallet must be a 95-character primary address" ;;
-*) [ -f /etc/moneroid/p2pool.conf ] || die "--wallet 4… is required (primary address, not a subaddress)" ;; esac
+# Values go into sed programs and config files: allow only the characters they can legitimately contain.
+if [ -n "$WALLET" ]; then
+	printf '%s' "$WALLET" | grep -Eq '^4[1-9A-HJ-NP-Za-km-z]{94}$' || die "--wallet must be a 95-character base58 primary address starting with 4"
+else [ -f /etc/moneroid/p2pool.conf ] || die "--wallet 4… is required (primary address, not a subaddress)"; fi
 case $SIDECHAIN in mini | nano | main) ;; *) die "--sidechain must be mini, nano or main" ;; esac
+NODE_HOST='' NODE_RPC='' NODE_ZMQ=''
+if [ -n "$NODE" ]; then
+	case $NODE in
+	\[*) NODE_HOST=${NODE%%]*}; NODE_HOST=${NODE_HOST#[}; rest=${NODE##*]:} ;; # [ipv6]:rpc:zmq
+	*) NODE_HOST=${NODE%%:*}; rest=${NODE#*:} ;;
+	esac
+	NODE_RPC=${rest%%:*}; NODE_ZMQ=${rest##*:}
+	printf '%s' "$NODE_HOST" | grep -Eq '^[A-Za-z0-9.:-]+$' && printf '%s:%s' "$NODE_RPC" "$NODE_ZMQ" | grep -Eq '^[0-9]{1,5}:[0-9]{1,5}$' \
+		|| die "--node must be HOST:RPC:ZMQ (IPv6 as [addr]:RPC:ZMQ), got $NODE"
+fi
 
 fetch() { # url dest
 	if command -v curl >/dev/null; then curl -fsSL --retry 3 -o "$2" "$1"
@@ -111,8 +129,37 @@ if [ ! -e /etc/moneroid/moneroid.toml ]; then
 	install -o root -g root -m 0644 moneroid.toml /etc/moneroid/moneroid.toml
 fi
 if [ -n "$NODE" ]; then
-	h=${NODE%%:*}; r=${NODE#*:}; r=${r%%:*}; z=${NODE##*:}
-	sed -i -e "s/^host = .*/host = $h/" -e "s/^rpc-port = .*/rpc-port = $r/" -e "s/^zmq-port = .*/zmq-port = $z/" /etc/moneroid/p2pool.conf
+	sed -i -e "s/^host = .*/host = $NODE_HOST/" -e "s/^rpc-port = .*/rpc-port = $NODE_RPC/" -e "s/^zmq-port = .*/zmq-port = $NODE_ZMQ/" /etc/moneroid/p2pool.conf
+fi
+
+if [ $I2P = 1 ]; then
+	if ! command -v i2pd >/dev/null; then
+		if command -v apt-get >/dev/null; then { apt-get update -qq && apt-get install -y -qq i2pd; } >/dev/null 2>&1 || true
+		elif command -v pacman >/dev/null; then pacman -S --noconfirm --needed i2pd >/dev/null 2>&1 || true; fi
+		command -v i2pd >/dev/null || die "i2pd not installed; install it and re-run with --i2p"
+	fi
+	# P2Pool proxies every non-private connection, so the node in the effective config must be LAN/localhost or .b32.i2p.
+	case $(sed -n 's/^host = //p' /etc/moneroid/p2pool.conf | tail -1) in
+	10.* | 192.168.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].* | 127.* | localhost | ::1 | fc* | fd* | fe80:* | *.b32.i2p) ;;
+	*) die "--i2p needs a node on LAN/localhost or inside I2P: pass --node LAN_IP:RPC:ZMQ (or a .b32.i2p host)" ;;
+	esac
+	if grep -q '^nano = 1' /etc/moneroid/p2pool.conf; then p2p_port=37890
+	elif grep -q '^mini = 1' /etc/moneroid/p2pool.conf; then p2p_port=37888
+	else p2p_port=37889; fi
+	tdir=/etc/i2pd/tunnels.conf.d; [ -d $tdir ] || tdir=/etc/i2pd/tunnels.d; [ -d $tdir ] || mkdir -p $tdir
+	printf '[moneroid-p2pool]\ntype = server\nhost = 127.0.0.1\nport = %s\nkeys = moneroid-p2pool.dat\n' "$p2p_port" > moneroid-tunnel.conf
+	if ! cmp -s moneroid-tunnel.conf $tdir/moneroid.conf; then
+		install -o root -g root -m 0644 moneroid-tunnel.conf $tdir/moneroid.conf
+		systemctl enable -q i2pd && systemctl restart i2pd
+	else systemctl enable -q --now i2pd; fi
+	b32=''; for _ in $(seq 1 30); do
+		b32=$(fetch "http://127.0.0.1:7070/?page=i2p_tunnels" - 2>/dev/null | grep -o '>moneroid-p2pool</a>[^<]*[a-z2-7]\{52\}\.b32\.i2p:'"$p2p_port" | grep -o '[a-z2-7]\{52\}\.b32\.i2p' | head -1) && [ -n "$b32" ] && break
+		sleep 2
+	done
+	[ -n "$b32" ] || die "i2pd did not report the moneroid-p2pool tunnel (web console 127.0.0.1:7070); check journalctl -u i2pd"
+	sed -i '/^socks5 = \|^socks5-proxy-type = \|^no-dns = \|^i2p-address = \|^p2p = \|^no-clearnet-p2p = /d' /etc/moneroid/p2pool.conf
+	printf '\n# P2Pool over I2P (install.sh --i2p): peers via i2pd SOCKS, node on LAN/localhost is reached directly.\nsocks5 = 127.0.0.1:4447\nsocks5-proxy-type = i2p\nno-dns = 1\ni2p-address = %s\np2p = 127.0.0.1:%s\nno-clearnet-p2p = 1\n' "$b32" "$p2p_port" >> /etc/moneroid/p2pool.conf
+	echo "I2P: p2p tunnel $b32:$p2p_port, keys in /var/lib/i2pd/moneroid-p2pool.dat (back it up)"
 fi
 
 if [ $HUGEPAGES = 1 ]; then
@@ -129,7 +176,7 @@ if [ $HUGEPAGES = 1 ]; then
 		fi
 		if command -v wrmsr >/dev/null; then
 			install -o root -g root -m 0644 examples/moneroid-msr.service /etc/systemd/system/
-			systemctl enable -q moneroid-msr.service
+			systemctl enable -q --now moneroid-msr.service
 		else echo "note: msr-tools not found; MSR unit skipped"; fi
 	fi
 fi
@@ -143,7 +190,7 @@ if [ -z "$NODE" ] && grep -q '^host = 127.0.0.1$' /etc/moneroid/p2pool.conf; the
 	echo "probing Monero nodes from /etc/moneroid/nodes.txt…"
 	moneroid node select || echo "no usable node found; set host/rpc-port/zmq-port in /etc/moneroid/p2pool.conf and run: moneroid start"
 fi
-moneroid start
+if systemctl is-active -q moneroid-p2pool.service moneroid-xmrig.service; then moneroid restart; else moneroid start; fi
 if [ $ENABLE = 1 ]; then systemctl enable -q $UNITS && echo "autostart enabled"; fi
 echo; moneroid doctor || true
 echo; echo "done: moneroid status | moneroid tui | moneroid logs --follow p2pool  (sidechain sync takes a few minutes)"

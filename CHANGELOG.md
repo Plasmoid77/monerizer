@@ -1,5 +1,12 @@
 # Изменения
 
+## v0.4.1 — 2026-09-16
+
+- `install.sh --i2p`: P2Pool p2p через I2P (i2pd, серверный туннель, `.b32.i2p` в `p2pool.conf`); требует ноды в LAN/localhost или `.b32.i2p`.
+- `node`/`doctor`: при `socks5` в `p2pool.conf` loopback/LAN-адреса ноды проверяются напрямую, как делает сам P2Pool (нужно для Tor/I2P с локальной нодой).
+- `docs/install.md`: смена sidechain (очистка кэша), параметры main/mini/nano по исходникам.
+- `install.sh`: по замечаниям Codex — строгая проверка `--wallet`/`--node` (base58, IPv6 `[addr]:RPC:ZMQ`), `restart` при повторном запуске, туннель i2pd по имени и по цепочке из конфига, `--now` для MSR-unit, `--uninstall` останавливает каждую службу отдельно и убирает туннель.
+
 ## v0.4.0 — 2026-09-16
 
 - **Проект переименован в Moneroid.** Бинарник, модуль Go, unit'ы `moneroid-p2pool.service`/`moneroid-xmrig.service`, группа и пользователи `moneroid*`, каталоги `/etc/moneroid`, `/var/lib/moneroid`, `/run/moneroid-p2pool-api`, `api.id = moneroid-xmrig`. Переход с Monerizer — `docs/install.md`. Записи ниже про прошлые версии читаются с поправкой на старое имя.

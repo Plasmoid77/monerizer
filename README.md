@@ -45,6 +45,8 @@ curl -fsSLO https://raw.githubusercontent.com/Plasmoid77/moneroid/main/install.s
 sh install.sh --wallet 4ВАШ_ОСНОВНОЙ_АДРЕС          # + --enable (автозапуск), --hugepages, --node HOST:RPC:ZMQ, --sidechain mini|nano|main
 ```
 
+`--i2p` (вместе с `--node LAN_IP:RPC:ZMQ` или нодой `.b32.i2p`) ставит `i2pd`, создаёт серверный туннель и переводит p2p-трафик P2Pool в I2P — см. раздел в `docs/install.md`.
+
 Скрипт скачивает официальные релизы P2Pool и XMRig и бинарник Moneroid, сверяет их с SHA256, закреплёнными в скрипте (подпись P2Pool проверена при закреплении), создаёт группу и двух системных пользователей, кладёт конфиги и unit-файлы, выбирает Monero-ноду пробой из `nodes.txt`, запускает службы и показывает `doctor`. Повторный запуск ничего не перезаписывает в `/etc/moneroid`. Удаление: `sh install.sh --uninstall [--purge]`.
 
 Вручную, по шагам (или из исходников: `make build`, Go 1.27) — [docs/install.md](docs/install.md).

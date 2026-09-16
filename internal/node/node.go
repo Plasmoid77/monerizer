@@ -337,11 +337,21 @@ type Params struct {
 }
 
 // Dialer returns the dialer matching how P2Pool connects.
+// Like P2Pool (is_private_address), loopback/private/link-local targets bypass
+// the proxy, so a LAN node keeps working in Tor/I2P setups.
 func (p Params) Dialer() Dialer {
 	if p.Socks5 == "" {
 		return DirectDialer
 	}
-	return SOCKS5Dialer(p.Socks5)
+	viaProxy := SOCKS5Dialer(p.Socks5)
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		if host, _, err := net.SplitHostPort(addr); err == nil {
+			if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()) {
+				return DirectDialer(ctx, network, addr)
+			}
+		}
+		return viaProxy(ctx, network, addr)
+	}
 }
 
 // ReadParams returns the node keys of a params-file, with P2Pool defaults for absent keys.

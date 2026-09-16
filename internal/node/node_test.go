@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseList(t *testing.T) {
@@ -159,5 +160,35 @@ func TestSOCKS5Dialer(t *testing.T) {
 	}
 	if _, err := SOCKS5Dialer("127.0.0.1:1")(context.Background(), "tcp", "1.2.3.4:80"); err == nil {
 		t.Fatal("dead proxy must fail")
+	}
+}
+
+func TestParamsDialerBypassesProxyForPrivateAddresses(t *testing.T) {
+	// A listener stands in for a LAN node; the proxy address is a closed port,
+	// so a dial that went through the proxy would fail.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			c.Close()
+		}
+	}()
+	d := Params{Socks5: "127.0.0.1:1"}.Dialer()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	c, err := d(ctx, "tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("private address must bypass the proxy: %v", err)
+	}
+	c.Close()
+	if _, err := d(ctx, "tcp", "203.0.113.1:18081"); err == nil || !strings.Contains(err.Error(), "socks5") {
+		t.Fatalf("public address must go through the proxy, got %v", err)
 	}
 }
