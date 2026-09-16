@@ -1,4 +1,4 @@
-// Package doctor runs the read-only checks of ТЗ DOC-01..05 over a collected snapshot.
+// Package doctor runs the read-only checks of spec DOC-01..05 over a collected snapshot.
 package doctor
 
 import (

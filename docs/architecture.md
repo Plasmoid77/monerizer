@@ -1,8 +1,8 @@
-# Как устроен Moneroid
+# How Moneroid is built
 
-Один статический бинарник Go (~3,5 тыс. строк без тестов), два внешних модуля: `github.com/BurntSushi/toml` и `charm.land/bubbletea/v2` (только для `tui`). Никакого демона, состояния на диске и сети наружу, кроме loopback и — по запросу — проб нод.
+One static Go binary (~3.5k lines without tests), three external modules: `github.com/BurntSushi/toml`, `charm.land/bubbletea/v2` (only for `tui`) and `github.com/charmbracelet/colorprofile` (colour downsampling). No daemon, no state on disk and no network beyond loopback — except node probes on request.
 
-## Поток данных
+## Data flow
 
 ```text
                      ┌──────────────── systemctl show / start / stop / restart / reset-failed
@@ -10,52 +10,52 @@
 moneroid ───────────┼──────────────── GET http://127.0.0.1:18088/2/summary        (XMRig HTTP API)
   status/tui/doctor  │
                      └──────────────── read /run/moneroid-p2pool-api/{local/p2p,local/stratum,network/stats,pool/stats}
-                                        (P2Pool Data API, файлы пишет P2Pool)
+                                        (P2Pool Data API, files written by P2Pool)
 
-XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero-нода     (Moneroid в этой цепочке не участвует)
+XMRig ──Stratum 127.0.0.1:3333──▶ P2Pool ──RPC+ZMQ──▶ Monero node     (Moneroid takes no part in this chain)
 ```
 
-Один вызов `Collector.Collect` (`internal/status/collect.go`) опрашивает три источника **параллельно и независимо** с общим deadline 3 s (1 s на HTTP/systemctl). Отказ одного источника не трогает остальные; результат всегда есть — проблемы записываются в `sources` и `health.issues`, а не в ошибку.
+One `Collector.Collect` call (`internal/status/collect.go`) polls the three sources **in parallel and independently** with a common 3 s deadline (1 s per HTTP/systemctl call). A failing source does not affect the others; there is always a result — problems land in `sources` and `health.issues`, not in an error.
 
-## Пакеты
+## Packages
 
-| Пакет | Отвечает за | Не отвечает за |
+| Package | Responsible for | Not responsible for |
 |---|---|---|
-| `cmd/moneroid` | разбор аргументов, вывод текста/JSON, коды завершения (0/1/2/3/4/130) | логику данных |
-| `internal/config` | `moneroid.toml`: строгая схема, loopback-only `api_url`, абсолютные пути | чтение конфигов P2Pool/XMRig |
-| `internal/systemd` | `systemctl show` → свойства; `systemctl VERB -- UNIT…`; аргументы `journalctl` | разбор `systemctl status`, PID-менеджмент |
-| `internal/xmrig` | `GET /2/summary` → нормализованные nullable-поля | POST/PUT, конфиг майнера |
-| `internal/p2pool` | чтение четырёх файлов Data API (обычные файлы, ≤ 1 MiB, retry 50 ms) | HTTP-сервер, консенсус |
-| `internal/jsonx` | толерантный JSON: неизвестные поля игнорируются, неверный тип портит только своё поле | — |
-| `internal/status` | модель `Snapshot`, сбор, свежесть, привязка данных к сессии процесса, правила health | хранение истории |
-| `internal/doctor` | 31 read-only проверка над тем же `Snapshot` + journal/token/clock/node | автопочинку |
-| `internal/node` | проба нод (`get_info`, `get_block_headers_range`, ZMTP-рукопожатие, при необходимости через SOCKS5), замена трёх ключей в `p2pool.conf` | выбор ноды «на лету» |
-| `internal/payouts` | строки «got a payout of» из журнала через `journalctl -g` (единственное чтение логов) | баланс, кошелёк |
-| `internal/tui` | Bubble Tea-панель над тем же `Collector` во всю высоту терминала (`htop`-стиль); меню control; `journalctl -f` через `tea.ExecProcess`; сводка выплат раз в минуту | собственный сбор данных |
-| `internal/ansi` | несколько SGR-последовательностей палитры Monero (оранжевый/белый, красный для проблем) и `Bar`; понижение цвета и `NO_COLOR` делает `colorprofile` (в TUI — сам Bubble Tea) | цвет как единственный носитель смысла |
+| `cmd/moneroid` | argument parsing, text/JSON output, exit codes (0/1/2/3/4/130) | data logic |
+| `internal/config` | `moneroid.toml`: strict schema, loopback-only `api_url`, absolute paths | reading the P2Pool/XMRig configs |
+| `internal/systemd` | `systemctl show` → properties; `systemctl VERB -- UNIT…`; `journalctl` arguments | parsing `systemctl status`, PID management |
+| `internal/xmrig` | `GET /2/summary` → normalized nullable fields | POST/PUT, the miner config |
+| `internal/p2pool` | reading the four Data API files (regular files, ≤ 1 MiB, 50 ms retry) | HTTP server, consensus |
+| `internal/jsonx` | tolerant JSON: unknown fields are ignored, a wrong type breaks only its own field | — |
+| `internal/status` | the `Snapshot` model, collection, freshness, binding data to the process session, health rules | keeping history |
+| `internal/doctor` | 31 read-only checks over the same `Snapshot` + journal/token/clock/node | auto-repair |
+| `internal/node` | node probes (`get_info`, `get_block_headers_range`, ZMTP handshake, through SOCKS5 when configured, private addresses direct), replacing three keys in `p2pool.conf` | picking a node on the fly |
+| `internal/payouts` | the "got a payout of" lines from the journal via `journalctl -g` (the only log reading) | balance, wallet |
+| `internal/tui` | the Bubble Tea dashboard over the same `Collector`, full terminal height (`htop` style); control menu; `journalctl -f` via `tea.ExecProcess`; payouts summary once a minute; explicit erase on exit | collecting data of its own |
+| `internal/ansi` | a few SGR sequences of the Monero palette (orange/white, red for problems) and `Bar`; colour downsampling and `NO_COLOR` are done by `colorprofile` (in the TUI by Bubble Tea itself) | colour as the only carrier of meaning |
 
-Интерфейсы введены только на границах с внешним миром: `systemd.Runner` (запуск команд), `http.Client`, файловая система, часы (`Now`, `Monotonic`). Поэтому весь `internal/status` тестируется на fixtures без systemctl и сети (`testdata/`).
+Interfaces exist only at the boundaries with the outside world: `systemd.Runner` (command execution), `http.Client`, the file system, clocks (`Now`, `Monotonic`). That is why all of `internal/status` is tested on fixtures without systemctl and network (`testdata/`).
 
-## Ключевые инварианты
+## Key invariants
 
-1. **Панель никогда не владеет майнингом.** `q`, Ctrl-C, Esc, авария TUI не вызывают stop. Службы живут в systemd независимо от Moneroid (`SYS-01`).
-2. **Единственный владелец каждого параметра.** Адрес выплат, нода, sidechain — `p2pool.conf`; потоки, API — `xmrig.json`; пути бинарников — unit-файлы; что наблюдать — `moneroid.toml`. Moneroid пишет в чужой конфиг ровно в одном месте: `node select` меняет `host/rpc-port/zmq-port`.
-3. **`null` ≠ `0`.** Отсутствующее знание — `null`, измеренный ноль — `0`; это видно в тексте, JSON и спарклайне.
-4. **Свежесть и сессия.** У файла есть возраст (mtime) и доказательство принадлежности текущему процессу (`RuntimeDirectory` + сравнение uptime); у HTTP — совпадение `api.id` и uptime с `ExecMainStartTimestampMonotonic`. Данные прошлого запуска не подтверждают health.
-5. **Следствия не выдаются за причины.** «API недоступен» ≠ «процесс упал», «служба active» ≠ «нода синхронизирована»; `sync_state` всегда `unknown`.
-6. **Health по правилам H-02/H-03** (`internal/status/health.go`): unit not-found/failed → `degraded`; обе inactive → `stopped`; activating → `starting`; одна из двух → `degraded`; обе active → `ok` только при свежем `local/p2p` текущего процесса, XMRig connected с hashrate > 0, peers > 0, sidechain не отстаёт от peers, ZMQ ≤ 600 s.
+1. **The dashboard never owns mining.** `q`, Ctrl-C, Esc or a TUI crash never call stop. The services live in systemd independently of Moneroid (`SYS-01`).
+2. **One owner per parameter.** Payout address, node, sidechain — `p2pool.conf`; threads, API — `xmrig.json`; binary paths — the unit files; what to observe — `moneroid.toml`. Moneroid writes to a foreign config in exactly one place: `node select` changes `host/rpc-port/zmq-port`.
+3. **`null` ≠ `0`.** Unknown is `null`, a measured zero is `0`; visible in text, JSON and the sparkline.
+4. **Freshness and session.** A file has an age (mtime) and a proof of belonging to the current process (`RuntimeDirectory` + uptime comparison); HTTP has a matching `api.id` and uptime versus `ExecMainStartTimestampMonotonic`. Data from a previous run never confirms health.
+5. **Consequences are not presented as causes.** "API unavailable" ≠ "process crashed", "service active" ≠ "node synchronized"; `sync_state` is always `unknown`.
+6. **Health by rules H-02/H-03** (`internal/status/health.go`): unit not-found/failed → `degraded`; both inactive → `stopped`; activating → `starting`; one of two → `degraded`; both active → `ok` only with a fresh `local/p2p` of the current process, XMRig connected with hashrate > 0, peers > 0, sidechain not behind the peers, ZMQ ≤ 600 s.
 
-Нормативный документ — [ТЗ](spec.md); откуда взято каждое поле и единица — [контракты источников](research/upstream-contracts.md); что и как проверялось — [отчёт приёмки](research/acceptance-report-v1.md).
+The normative document is the [spec](spec.md); where each field and unit comes from — the [source contracts](research/upstream-contracts.md); what was verified and how — the [acceptance report](research/acceptance-report-v1.md).
 
-## Схемы вывода
+## Output schemas
 
-`status --json` и `doctor --json` версионируются полем `schema_version` (сейчас 1): поля только добавляются. Описание — [docs/schema](schema/).
+`status --json`, `doctor --json` and `payouts --json` are versioned by `schema_version` (currently 1): fields are only added. Description — [docs/schema](schema/).
 
-## Сборка и проверка
+## Build and check
 
 ```sh
-make check      # gofmt, go vet, go test -race, статическая сборка linux/amd64
-make build      # ./moneroid с версией из git describe
+make check      # gofmt, go vet, go test -race, static linux/amd64 build
+make build      # ./moneroid with the version from git describe
 ```
 
-Тесты не ходят в сеть и не вызывают systemctl; fixtures в `testdata/` — реальные ответы P2Pool 4.18 и XMRig 6.26.0 с заменёнными адресами.
+Tests never touch the network or call systemctl; the fixtures in `testdata/` are real P2Pool 4.18 and XMRig 6.26.0 replies with addresses replaced.

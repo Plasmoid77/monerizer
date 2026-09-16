@@ -1,10 +1,10 @@
-# Кандидаты Monero-нод для `moneroid node list` / `node select` (NODE-01).
-# Формат: host rpc_port zmq_port (hostname, IPv4 или IPv6-литерал). Строки с # — комментарии.
-# Источник: публичный список monero.fail, отфильтрованный 2026-09-11 по
-# get_info (synchronized) и открытому ZMQ-порту. Открытый порт не гарантирует
-# стабильный ZMQ — окончательная проверка: `moneroid logs p2pool` без
-# повторяющихся «ZMQReader disconnected». Список сопровождает владелец файла.
-# Удалённая нода видит IP хоста и адрес выплат (NODE-05); локальная нода приватнее.
+# Monero node candidates for `moneroid node list` / `node select` (NODE-01).
+# Format: host rpc_port zmq_port (hostname, IPv4 or IPv6 literal). Lines starting with # are comments.
+# Source: the public monero.fail list, filtered on 2026-09-11 by get_info
+# (synchronized) and an open ZMQ port. An open port does not guarantee a stable
+# ZMQ feed — the final check is `moneroid logs p2pool` without repeated
+# "ZMQReader disconnected". The owner of this file maintains the list.
+# A remote node sees the host's IP and the payout address (NODE-05); a local node is more private.
 xmr.support 18081 18083
 hantaan.fullm00n.de 18089 18083
 xmr.jacoblightning3.xyz 18081 18083

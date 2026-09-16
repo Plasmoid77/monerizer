@@ -1,4 +1,4 @@
-// Package jsonx reads upstream JSON tolerantly (ТЗ DATA-03): unknown fields are
+// Package jsonx reads upstream JSON tolerantly (spec DATA-03): unknown fields are
 // ignored, and each wanted field is extracted on its own so one bad field does
 // not discard its neighbours.
 package jsonx

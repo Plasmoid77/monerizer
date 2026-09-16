@@ -1,47 +1,48 @@
-# Руководство для сопровождающих (людей и ИИ-агентов)
+# Maintainer guide (for people and AI agents)
 
-Этот файл — контракт на любые изменения в репозитории. Прочитайте его целиком перед правкой.
+This file is the contract for any change in the repository. Read it in full before editing.
 
-## Что это и чем не должно стать
+## What this is and what it must not become
 
-Moneroid — тонкий слой над двумя чужими программами (P2Pool, XMRig) и systemd. Цель владельца: **написать один раз и не сопровождать**. Отсюда главный критерий любой правки: *можно ли обойтись штатной командой systemd / journalctl / upstream?* Если да — правка не нужна.
+Moneroid is a thin layer over two foreign programs (P2Pool, XMRig) and systemd. The owner's goal: **write it once and not maintain it**. Hence the main criterion for any change: *can a stock systemd / journalctl / upstream command do this?* If yes, the change is not needed.
 
-Не добавлять: демоны, базы данных, web-UI, автообновление, скачивание бинарников, управление `monerod`, несколько стеков, баланс кошелька и внешние обозреватели пула, парсинг логов как источника метрик (исключение — события выплат, `internal/payouts`), форки/вендоринг upstream, новые зависимости без конкретной необходимости.
+Do not add: daemons, databases, a web UI, auto-updates, binary downloads inside the tool, `monerod` management, multiple stacks, wallet balances and external pool observers, log parsing as a metrics source (exception: payout events, `internal/payouts`), forks/vendoring of upstream, new dependencies without a concrete need.
 
-## Где что
+## Where things are
 
-| Вопрос | Файл |
+| Question | File |
 |---|---|
-| Требования, границы, коды причин, приёмочные сценарии A01–A30 | `docs/spec.md` |
-| Как устроен код, инварианты | `docs/architecture.md` |
-| Откуда каждое поле, единицы, свежесть | `docs/research/upstream-contracts.md` |
-| Что реально проверялось и на чём | `docs/research/acceptance-report-v1.md`, `stand-report-*.md` |
-| Установка / диагностика / обновление для пользователя | `docs/install.md`, `docs/troubleshooting.md`, `docs/updating.md` |
-| Схемы JSON | `docs/schema/` |
-| История решений | `docs/plan.md` (§0, §10), `docs/history/handoff-v2.md` |
+| Requirements, boundaries, reason codes, acceptance scenarios A01–A30 | `docs/spec.md` |
+| How the code is built, invariants | `docs/architecture.md` |
+| Where each field comes from, units, freshness | `docs/research/upstream-contracts.md` |
+| What was actually verified and where | `docs/research/acceptance-report-v1.md`, `stand-report-*.md` |
+| Install / troubleshoot / update for the user | `docs/install.md`, `docs/troubleshooting.md`, `docs/updating.md` |
+| JSON schemas | `docs/schema/` |
+| Decision history | `docs/plan.md` (§0, §10), `docs/history/handoff-v2.md` |
 
-## Правила изменения кода
+## Rules for code changes
 
-1. Сначала ТЗ, потом код: новое поведение сначала получает требование с кодом (например `NODE-06`) в `docs/spec.md`, потом реализацию, потом строку в `docs/research/acceptance-report-v1.md`, если проверялось вживую.
-2. Каждый код причины (`SOURCE_STALE`, `SIDECHAIN_BEHIND`, …) — стабильный контракт для автоматизации: не переименовывать, не менять смысл. Новые коды добавлять в список `docs/research/upstream-contracts.md` §7.
-3. `schema_version` JSON меняется только при удалении/переименовании поля. Добавление поля — без смены версии.
-4. Все числовые метрики nullable; `0` только для измеренного нуля.
-5. Никаких секретов в выводе, JSON, ошибках, fixtures: адрес выплат, токены, cookie консоли P2Pool. `sanitize()` для строк от upstream.
-6. Тесты: `make check` обязателен и должен проходить без сети и без systemctl. Новые upstream-поля — через fixtures в `testdata/` (реальные captures с заменёнными адресами; версия upstream в имени каталога).
-7. Один коммит — одно изменение с понятным сообщением на русском. Не пушить в `main` без `make check`.
+1. Spec first, then code: new behaviour first gets a requirement with a code (e.g. `NODE-06`) in `docs/spec.md`, then the implementation, then a line in `docs/research/acceptance-report-v1.md` if it was verified live.
+2. Every reason code (`SOURCE_STALE`, `SIDECHAIN_BEHIND`, …) is a stable contract for automation: do not rename, do not change the meaning. Add new codes to the list in `docs/research/upstream-contracts.md` §7.
+3. The JSON `schema_version` changes only when a field is removed or renamed. Adding a field keeps the version.
+4. All numeric metrics are nullable; `0` only for a measured zero.
+5. No secrets in output, JSON, errors or fixtures: payout address, tokens, the P2Pool console cookie. `sanitize()` for strings from upstream.
+6. Tests: `make check` is mandatory and must pass without network and without systemctl. New upstream fields come through fixtures in `testdata/` (real captures with addresses replaced; the upstream version in the directory name).
+7. One commit — one change with a clear message. Do not push to `main` without `make check`.
 
-## Проверка вживую
+## Live verification
 
-Unit-тестов недостаточно для systemd-части. Минимальный стенд: любая Linux-система с systemd ≥ 249, P2Pool и XMRig из официальных релизов, удалённая Monero-нода с RPC+ZMQ. Скрипты `docs/research/stand-install.sh` / `stand-rollback.sh` ставят и полностью убирают стенд. Чистая VM (libvirt + cloud-image) — самый дешёвый способ проверить установку «по инструкции с нуля».
+Unit tests are not enough for the systemd part. Minimal stand: any Linux system with systemd ≥ 249, P2Pool and XMRig from the official releases, a remote Monero node with RPC+ZMQ. `install.sh` sets the stand up and `install.sh --uninstall --purge` removes it completely. A clean VM (libvirt + cloud image) is the cheapest way to verify an "install from scratch by the instructions" run.
 
-Не запускать майнинг на чужих или продуктивных машинах без явного разрешения владельца; после теста служб — `moneroid stop`.
+Do not start mining on other people's or production machines without the owner's explicit permission; after testing the services — `moneroid stop`.
 
-## Известные ловушки (из опыта)
+## Known traps (from experience)
 
-- P2Pool после старта пишет `SideChain SYNCHRONIZED` на собственной пустой цепочке и только через минуты переключается на реальную; смотрите `SIDECHAIN_BEHIND`/`SIDECHAIN_SYNC`.
-- P2Pool берёт первый DNS-ответ (может быть недостижимый IPv6) — `node select` пишет IP-литерал.
-- Открытый TCP-порт 18083 ≠ ZMQ; проба делает ZMTP-рукопожатие.
-- Фильтрующие аплинки рвут ответы > ~15 KB при живом `get_info`; P2Pool умеет `socks5`, Moneroid пробует ноды через тот же прокси.
-- Под непривилегированным пользователем XMRig не применяет MSR mod и не выделяет hugepages сам — см. `docs/install.md` §6.
-- `RuntimeDirectory` удаляется при stop — это и есть доказательство, что файлы Data API принадлежат текущему процессу.
-- Debian: `/usr/sbin/nologin`; Ubuntu 22.04: polkit 0.105 без `rules.d`.
+- After start P2Pool logs `SideChain SYNCHRONIZED` on its own empty chain and only minutes later switches to the real one; watch `SIDECHAIN_BEHIND`/`SIDECHAIN_SYNC`.
+- P2Pool takes the first DNS answer (possibly an unreachable IPv6) — `node select` writes an IP literal.
+- An open TCP port 18083 ≠ ZMQ; the probe does a ZMTP handshake.
+- Filtering uplinks cut replies > ~15 KB while `get_info` still works; P2Pool supports `socks5`, and Moneroid probes nodes through the same proxy (private addresses go direct, as in P2Pool).
+- Under an unprivileged user XMRig applies no MSR mod and allocates no hugepages itself — see `docs/install.md` §6.
+- `RuntimeDirectory` is removed on stop — that is the proof that the Data API files belong to the current process.
+- Switching sidechains (mini/nano/main) needs `p2pool_peers.txt` and `p2pool.cache` removed, otherwise P2Pool bans the old peers one by one and "synchronizes" an empty chain of its own.
+- Debian: `/usr/sbin/nologin`; Ubuntu 22.04: polkit 0.105 without `rules.d`; the Linux console (`TERM=linux`) has no alternate screen.

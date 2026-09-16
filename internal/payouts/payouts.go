@@ -1,4 +1,4 @@
-// Package payouts lists P2Pool payout events from the unit journal (ТЗ §6.2).
+// Package payouts lists P2Pool payout events from the unit journal (spec §6.2).
 // This is the one place Moneroid reads log lines: payouts are events P2Pool
 // reports nowhere else, not metrics.
 package payouts

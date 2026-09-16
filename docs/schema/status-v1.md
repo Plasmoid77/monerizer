@@ -1,8 +1,8 @@
-# Схема `moneroid status --json`, schema_version 1
+# Schema of `moneroid status --json`, schema_version 1
 
-Сгенерировано из живого snapshot 2026-09-11. Все числовые поля и `connected` nullable: `null` — «неизвестно», `0` — измеренный ноль. Время — RFC3339 UTC. `sources.*` — семь источников: `systemd_p2pool`, `systemd_xmrig`, `xmrig_summary`, `p2pool_p2p`, `p2pool_stratum`, `p2pool_network`, `p2pool_pool`; `services.*` — `p2pool`, `xmrig`. `health.level`: `ok|degraded|stopped|starting|unknown`; `sources.*.state`: `ok|stale|unavailable|invalid|permission_denied|unknown`. Единицы и upstream-происхождение — в [контрактах](../research/upstream-contracts.md). В пределах версии поля только добавляются.
+Generated from a live snapshot on 2026-09-11. All numeric fields and `connected` are nullable: `null` means "unknown", `0` a measured zero. Time is RFC3339 UTC. `sources.*` are seven sources: `systemd_p2pool`, `systemd_xmrig`, `xmrig_summary`, `p2pool_p2p`, `p2pool_stratum`, `p2pool_network`, `p2pool_pool`; `services.*` are `p2pool`, `xmrig`. `health.level`: `ok|degraded|stopped|starting|unknown`; `sources.*.state`: `ok|stale|unavailable|invalid|permission_denied|unknown`. Units and upstream origin are in the [contracts](../research/upstream-contracts.md). Within a version fields are only added (`p2pool.peer_max_height`, `sources.*.error_code` and `sources.*.message` were added after the snapshot).
 
-| Поле | Тип в примере |
+| Field | Type in the example |
 |---|---|
 | `schema_version` | integer |
 | `collected_at` | string |

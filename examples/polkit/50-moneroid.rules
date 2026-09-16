@@ -1,5 +1,6 @@
-// Опциональное правило SEC-03: группа moneroid может start/stop/restart
-// (и reset-failed после start-limit-hit) ровно двух units без пароля. Установка: /etc/polkit-1/rules.d/50-moneroid.rules
+// Optional rule (SEC-03): group moneroid may start/stop/restart (and
+// reset-failed after a start-limit-hit) exactly two units without a password.
+// Install to /etc/polkit-1/rules.d/50-moneroid.rules (polkit >= 0.106).
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.systemd1.manage-units" &&
         subject.isInGroup("moneroid")) {

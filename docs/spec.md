@@ -1,131 +1,131 @@
-# Moneroid v1 — техническое задание
+# Moneroid v1 — specification
 
-Дата: 2026-09-11. Редакция: 0.4 — приведена к результатам стенда (отчёты №1–2) и реализации v1. Отличия от 0.2 перечислены в [плане реализации](plan.md), §0.
+Date: 2026-09-11. Revision 0.4 — aligned with the stand results (reports 1–2) and the v1 implementation; later additions (payouts, install script, I2P, colours) are marked with their dates. Differences from 0.2 are listed in the [implementation plan](plan.md), §0.
 
-Рабочая директория проекта: `/home/plasmoid/Moneroid`.
-Исходный материал: [handoff v2](history/handoff-v2.md).
-Этот документ уточняет и местами заменяет предложенные в handoff решения.
-Он описывает будущий продукт; наличие требования не означает, что функция уже реализована или проверена запуском.
+Project working directory: `/home/plasmoid/Moneroid`.
+Source material: [handoff v2](history/handoff-v2.md).
+This document refines and in places replaces the decisions proposed in the handoff.
+It describes the product; the presence of a requirement does not mean the feature is already implemented or verified by running it — see the [acceptance report](research/acceptance-report-v1.md) for that.
 
-## 1. Назначение и результат
+## 1. Purpose and result
 
-Moneroid — локальный инструмент эксплуатации одной пары P2Pool + XMRig на Linux-сервере с systemd. Пользователь через SSH запускает и останавливает службы, видит состояние и показатели, открывает журналы и диагностирует неисправности. Интерактивная панель необязательна для управления и никогда не отвечает за время жизни майнинга.
+Moneroid is a local tool for operating one P2Pool + XMRig pair on a Linux server with systemd. Over SSH the user starts and stops the services, sees state and metrics, opens journals and diagnoses faults. The interactive dashboard is optional for control and never owns the lifetime of mining.
 
-Продукт поставляется как один исполняемый файл `moneroid`, примеры нативных конфигураций, два systemd unit-файла и документация. XMRig, P2Pool и Monero-нода устанавливаются и обновляются независимо.
+The product ships as one executable `moneroid`, example native configurations, two systemd unit files and documentation. XMRig, P2Pool and the Monero node are installed and updated independently.
 
-Цель низкой сопровождаемости: изменения алгоритмов, консенсуса и оптимизаций остаются внутри upstream-программ. Совместимость с произвольными будущими версиями и отсутствие обновлений безопасности не гарантируются.
+Low-maintenance goal: changes to algorithms, consensus and optimizations stay inside the upstream programs. Compatibility with arbitrary future versions and security updates are not guaranteed.
 
-### 1.1. Основной пользовательский сценарий
+### 1.1. Main user scenario
 
-1. Администратор устанавливает внешние программы и настраивает доступ P2Pool к готовой Monero-ноде.
-2. Устанавливает конфиги и две службы по инструкции, выдаёт оператору необходимые права.
-3. Выполняет `moneroid doctor`, затем `moneroid start`.
-4. Проверяет `moneroid status`, закрывает SSH-сессию.
-5. Подключается позже, открывает `moneroid tui`, смотрит показатели и журналы.
-6. Выходит из панели; майнинг продолжается.
-7. Независимо обновляет upstream-бинарник, перезапускает соответствующую службу и использует прежний Moneroid.
+1. The administrator installs the external programs and gives P2Pool access to a ready Monero node.
+2. Installs the configs and the two services by the instructions, grants the operator the needed rights.
+3. Runs `moneroid doctor`, then `moneroid start`.
+4. Checks `moneroid status`, closes the SSH session.
+5. Connects later, opens `moneroid tui`, looks at metrics and journals.
+6. Leaves the dashboard; mining continues.
+7. Independently updates an upstream binary, restarts the corresponding service and keeps using the same Moneroid.
 
-## 2. Принятый объём v1
+## 2. Accepted v1 scope
 
-| Входит | Не входит |
+| In | Out |
 |---|---|
-| Linux x86_64, системный экземпляр systemd | Windows/macOS, другие init-системы, systemd user units |
-| Одна локальная пара служб, произвольные имена служб | Несколько стеков одновременно, управление удалёнными машинами |
-| CLI и интерактивная TUI, английские команды и подписи | Web/GUI, локализация интерфейса |
-| `status`, JSON, `start/stop/restart`, `logs`, `doctor` | Собственный daemon, supervisor, планировщик перезапусков |
-| Нативные конфиги и ручная установка по точной инструкции | Загрузчик бинарников, auto-update, сборка майнеров, мастер установки |
-| Готовая локальная или удалённая Monero-нода; выбор ноды из редактируемого списка кандидатов по latency (§6.1) | Установка, синхронизация и управление `monerod`; встроенный список нод, фоновое переключение нод |
-| Наблюдение за выбранной upstream sidechain | Выбор сети на основе доходности, собственная логика shares/payouts |
-| Короткая история hashrate в памяти панели; список выплат из журнала P2Pool (§6.2) | База данных, постоянная история, баланс кошелька, внешние обозреватели пула |
-| Наблюдение за уже настроенным CPU-майнингом | Настройка ядра, MSR, hugepages, CPU affinity, GPU и энергопотребления |
+| Linux x86_64, the system systemd instance | Windows/macOS, other init systems, systemd user units |
+| One local pair of services, arbitrary service names | Several stacks at once, managing remote machines |
+| CLI and an interactive TUI, English commands and labels | Web/GUI, interface localization |
+| `status`, JSON, `start/stop/restart`, `logs`, `doctor` | An own daemon, supervisor, restart scheduler |
+| Native configs and installation by exact instructions (by hand or `install.sh`) | A binary downloader inside the tool, auto-update, building the miners, an install wizard |
+| A ready local or remote Monero node; node choice from an editable candidate list by latency (§6.1) | Installing, syncing and managing `monerod`; a built-in node list, background node switching |
+| Observing the chosen upstream sidechain | Choosing the chain by profitability, own share/payout logic |
+| A short hashrate history in the dashboard's memory; the payout list from the P2Pool journal (§6.2) | A database, persistent history, wallet balance, external pool observers |
+| Observing already configured CPU mining | Kernel, MSR, hugepages, CPU affinity, GPU and power tuning inside the tool |
 
-Рабочее имя продукта и команды — Moneroid / `moneroid`. Документация проекта и ТЗ — на русском. Имена полей JSON и диагностические коды — на английском.
+The product and command name is Moneroid / `moneroid`. Documentation is in English; JSON field names and diagnostic codes are in English.
 
-Первый запуск согласован с пользователем: готовые конфиги, systemd-шаблоны и точная инструкция. Мастер установки отложен на будущее.
+The first launch is agreed with the user: ready configs, systemd templates and exact instructions. An install wizard is postponed.
 
-## 3. Выбор архитектуры
+## 3. Architecture choice
 
-Рассмотрены три варианта:
+Three options were considered:
 
-| Вариант | Достоинство | Цена | Решение |
+| Option | Advantage | Cost | Decision |
 |---|---|---|---|
-| Go + нативные интерфейсы + Bubble Tea | Один бинарник, удобные HTTP/JSON/процессы, полноценная TUI | Несколько библиотек и тесты адаптеров | Основной вариант |
-| Bash + systemctl + jq + watch | Малый объём для неинтерактивной оболочки | Сложнее ввод, отмена операций, безопасная перерисовка и частичные ошибки | Подходит только при отказе от полноценной TUI |
-| Адаптация Gupax | Уже есть интеграция и daemon mode | Больше связанного состояния и функций, другая модель эксплуатации | Не использовать как основу |
+| Go + native interfaces + Bubble Tea | One binary, convenient HTTP/JSON/processes, a full TUI | A few libraries and adapter tests | The main option |
+| Bash + systemctl + jq + watch | Small size for a non-interactive shell | Harder input, operation cancelling, safe redraw and partial errors | Only if a full TUI is dropped |
+| Adapting Gupax | Integration and a daemon mode already exist | More coupled state and features, a different operating model | Not as a base |
 
-Канонический поток данных: `XMRig → Stratum P2Pool → RPC/ZMQ Monero node`. Moneroid не участвует в передаче заданий, shares или блоков. [Официальное руководство Monero](https://docs.getmonero.org/interacting/mining/guides/p2pool/xmrig-p2pool/)
+Canonical data flow: `XMRig → Stratum P2Pool → RPC/ZMQ Monero node`. Moneroid takes no part in passing jobs, shares or blocks. [Official Monero guide](https://docs.getmonero.org/interacting/mining/guides/p2pool/xmrig-p2pool/)
 
 ```text
 CLI ─┐                    ┌─ systemctl / journalctl → systemd → P2Pool, XMRig
-     ├─ операции и модель ├─ HTTP GET → XMRig API
-TUI ─┘                    └─ чтение локальных JSON-файлов → P2Pool Data API
+     ├─ operations, model ├─ HTTP GET → XMRig API
+TUI ─┘                    └─ reading local JSON files → P2Pool Data API
 ```
 
-### 3.1. Важные изменения относительно handoff
+### 3.1. Important changes relative to the handoff
 
-- Путь бинарника и путь нативного конфига принадлежат systemd unit-файлу. Они не дублируются в конфигурации Moneroid.
-- Moneroid не реализует парсеры всей конфигурации P2Pool/XMRig. Правильность их семантики проверяют сами upstream-программы; ошибки запуска видны через systemd и журнал.
-- Запуск службы не объявляется готовностью к майнингу. Проверка TCP-порта также не доказывает синхронизацию или получение заданий.
-- Изменение одной службы не инициирует скрытое управление второй. Порядок общей операции задаётся systemd.
-- Состояние каждого источника данных независимо. Возраст файла и время его успешного чтения — разные величины.
-- Счётчик принятых заданий XMRig не обозначается как количество P2Pool shares или выплат.
-- Список обязательных метрик ограничен тем, что можно достоверно получить из структурированных интерфейсов.
+- The binary path and the native config path belong to the systemd unit file. They are not duplicated in the Moneroid configuration.
+- Moneroid does not implement parsers of the whole P2Pool/XMRig configuration. Their semantics are checked by the upstream programs themselves; start errors are visible through systemd and the journal.
+- Starting a service is not declared readiness to mine. A TCP port check does not prove sync or receiving jobs either.
+- Changing one service does not trigger hidden control of the other. The order of a joint operation is set by systemd.
+- The state of every data source is independent. A file's age and the time it was read successfully are different values.
+- The XMRig accepted-jobs counter is not labelled as the number of P2Pool shares or payouts.
+- The list of mandatory metrics is limited to what the structured interfaces provide reliably.
 
-### 3.2. Компоненты и границы
+### 3.2. Components and boundaries
 
-| Компонент | Отвечает за | Не отвечает за |
+| Component | Responsible for | Not responsible for |
 |---|---|---|
-| CLI | Аргументы, вывод, коды завершения | Парсинг API, майнинг |
-| TUI | Клавиатуру, представление snapshot, подтверждение операций | Собственный сбор метрик, управление дочерними майнерами |
-| Collector | Параллельный ограниченный сбор, кэш последнего валидного ответа в памяти | Постоянное хранение, перезапуски |
-| Systemd adapter | Чтение свойств, команды строго заданным units | Исправление units и конфигов, управление процессами по PID |
-| XMRig adapter | Чтение локального API, нормализацию подтверждённых полей | Запись через API, настройку потоков |
-| P2Pool adapter | Чтение фиксированного набора файлов Data API | HTTP-сервер, расчёт консенсуса, разбор журналов |
-| Health/doctor | Объяснимые проверки с кодами причин | Автоматическое исправление, предположения о доходности |
+| CLI | Arguments, output, exit codes | API parsing, mining |
+| TUI | Keyboard, presenting the snapshot, confirming operations | Collecting metrics itself, managing child miners |
+| Collector | Parallel bounded collection, in-memory cache of the last valid reply | Persistent storage, restarts |
+| Systemd adapter | Reading properties, commands to strictly named units | Fixing units and configs, managing processes by PID |
+| XMRig adapter | Reading the local API, normalizing the confirmed fields | Writing through the API, thread setup |
+| P2Pool adapter | Reading a fixed set of Data API files | An HTTP server, consensus, log parsing |
+| Health/doctor | Explainable checks with reason codes | Automatic repair, profitability assumptions |
 
-Интерфейсы вводятся только у внешних зависимостей: runner команд, HTTP, файловое чтение, часы. Общая модель не зависит от библиотек TUI и от полного upstream JSON. Отдельный DI-контейнер, event bus, плагины и RPC между частями приложения не нужны.
+Interfaces exist only at the external dependencies: command runner, HTTP, file reading, clocks. The common model does not depend on TUI libraries or on the full upstream JSON. A DI container, an event bus, plugins and RPC between parts of the application are not needed.
 
-## 4. Платформа и зависимости
+## 4. Platform and dependencies
 
-- Сборка `linux/amd64`, `CGO_ENABLED=0`; для работы Go и интерпретаторы не нужны.
-- Базовая цель systemd: версия 249 или новее; фактическая совместимость подтверждается интеграционными проверками. Это граница поддержки продукта, а не утверждение о минимуме upstream-программ.
-- Начальная линия компилятора — Go 1.27; конкретный patch фиксируется в сборке. На дату исследования опубликован 1.27.1. [Go release history](https://go.dev/doc/devel/release)
-- TUI — `charm.land/bubbletea/v2`, начальная проверяемая версия 2.0.9. Это major v2: примеры API v1 нельзя смешивать с ней. [Исходный go.mod](https://github.com/charmbracelet/bubbletea/blob/v2.0.9/go.mod)
-- TOML — `github.com/BurntSushi/toml`; версия фиксируется в `go.mod/go.sum` при реализации. CLI — стандартный `flag` и небольшой dispatcher; Cobra, Bubbles и отдельный styling framework не обязательны.
-- Эталонные upstream-версии для начальной проверки: P2Pool 4.17.1, XMRig 6.26.0 — версии, по исходникам которых проверены контракты. На 2026-09-11 актуальный релиз P2Pool — 4.18 (2026-08-05); стенд этапа 1 использует актуальные релизы и повторно сверяет контракты с ними. Версии не скачиваются приложением и не образуют таблицу разрешённых версий. Поддержка будущих версий проверяется по интерфейсам.
-- Release содержит бинарник, checksum, примеры конфигов/units и инструкции. Публикация пакетов дистрибутивов, контейнеров и автозагрузка релизов не входят в v1.
+- Build `linux/amd64`, `CGO_ENABLED=0`; Go and interpreters are not needed at runtime.
+- Base systemd target: version 249 or newer; the actual compatibility is confirmed by integration checks. This is the product's support boundary, not a statement about the upstream programs' minimum.
+- Initial compiler line — Go 1.27; the exact patch is pinned in the build. [Go release history](https://go.dev/doc/devel/release)
+- TUI — `charm.land/bubbletea/v2`, initial verified version 2.0.9. This is major v2: v1 API examples must not be mixed with it. [go.mod](https://github.com/charmbracelet/bubbletea/blob/v2.0.9/go.mod)
+- TOML — `github.com/BurntSushi/toml`; colour downsampling — `github.com/charmbracelet/colorprofile` (already in the graph via Bubble Tea). CLI — the standard `flag` and a small dispatcher; Cobra, Bubbles and a separate styling framework are not required.
+- Reference upstream versions for the initial verification: P2Pool 4.17.1, XMRig 6.26.0 — the versions whose sources the contracts were checked against. As of 2026-09-11 the current P2Pool release is 4.18 (2026-08-05); the stage-1 stand used the current releases and re-checked the contracts with them. The application does not download versions and keeps no table of allowed versions. Future versions are supported through the interfaces.
+- A release contains the binary, checksums, example configs/units and instructions. Distribution packages, containers and automatic release downloads are not part of v1.
 
-## 5. Владение конфигурацией и размещение
+## 5. Configuration ownership and layout
 
-### 5.1. Единственный источник каждого параметра
+### 5.1. Single source of every parameter
 
-| Параметр | Владелец |
+| Parameter | Owner |
 |---|---|
-| Адрес выплат, node RPC/ZMQ, sidechain, Stratum bind, Data API output | Нативный `p2pool.conf` |
-| Pool endpoint, CPU-профиль, HTTP API, donation и прочие настройки майнера | Нативный `xmrig.json` |
-| Исполняемый файл, аргументы запуска, Unix-пользователь, рабочий каталог | systemd unit и его drop-ins |
-| Какие units наблюдать/контролировать, откуда читать API, частота обновления, пути `params_file`/`nodes_file` | `moneroid.toml` |
-| Список кандидатов Monero-нод | `nodes.txt`; результат `node select` записывается в три ключа `p2pool.conf` — единственная запись Moneroid в нативный конфиг (§6.1) |
+| Payout address, node RPC/ZMQ, sidechain, Stratum bind, Data API output | native `p2pool.conf` |
+| Pool endpoint, CPU profile, HTTP API, donation and the other miner settings | native `xmrig.json` |
+| Executable, launch arguments, Unix user, working directory | the systemd unit and its drop-ins |
+| Which units to observe/control, where to read the API, refresh rate, `params_file`/`nodes_file` paths | `moneroid.toml` |
+| Monero node candidate list | `nodes.txt`; the result of `node select` is written into three keys of `p2pool.conf` — the only write Moneroid makes to a native config (§6.1) |
 
-Адрес источника наблюдения неизбежно должен совпадать с настройками производителя данных. Moneroid не синхронизирует эти файлы автоматически. При переносе API изменяются соответствующий нативный конфиг и адрес наблюдения; при переносе бинарника — только unit. Редактирование unit требует `daemon-reload`, редактирование нативного конфига — перезапуска upstream-службы.
+The observed address must inevitably match the data producer's settings. Moneroid does not synchronize these files automatically. Moving the API changes the corresponding native config and the observed address; moving the binary — only the unit. Editing a unit needs `daemon-reload`, editing a native config — a restart of the upstream service.
 
-### 5.2. Предлагаемое размещение
+### 5.2. Proposed layout
 
 ```text
 /etc/moneroid/moneroid.toml
 /etc/moneroid/p2pool.conf
 /etc/moneroid/xmrig.json
-/etc/moneroid/xmrig-api.token      # только если API использует токен
+/etc/moneroid/xmrig-api.token      # only if the API uses a token
 /etc/systemd/system/moneroid-p2pool.service
 /etc/systemd/system/moneroid-xmrig.service
-/var/lib/moneroid/p2pool/         # cache, peers и прочие upstream-данные
-/run/moneroid-p2pool-api/         # временный Data API текущего запуска
-/var/lib/moneroid/xmrig/          # рабочий каталог XMRig
+/var/lib/moneroid/p2pool/         # cache, peers and other upstream data
+/run/moneroid-p2pool-api/         # temporary Data API of the current run
+/var/lib/moneroid/xmrig/          # XMRig working directory
 ```
 
-Это системные пути будущей установки. Репозиторий в `/home/plasmoid/Moneroid` не является рабочим каталогом служб.
+These are the system paths of an installation. The repository in `/home/plasmoid/Moneroid` is not the services' working directory.
 
-### 5.3. Схема конфигурации Moneroid
+### 5.3. Moneroid configuration schema
 
 ```toml
 schema_version = 1
@@ -136,8 +136,8 @@ xmrig = "moneroid-xmrig.service"
 
 [p2pool]
 data_api_dir = "/run/moneroid-p2pool-api"
-# params_file = "/etc/moneroid/p2pool.conf"   # нужен только для node select и NODE_RPC
-# nodes_file  = "/etc/moneroid/nodes.txt"     # нужен только для node list/select
+# params_file = "/etc/moneroid/p2pool.conf"   # only for node select and NODE_RPC
+# nodes_file  = "/etc/moneroid/nodes.txt"     # only for node list/select
 
 [xmrig]
 api_url = "http://127.0.0.1:18088"
@@ -148,23 +148,23 @@ expected_id = "moneroid-xmrig"
 refresh_ms = 1000
 ```
 
-CFG-01. По умолчанию читается `/etc/moneroid/moneroid.toml`; `--config PATH` выбирает другой файл. Поиск в cwd, автоматическое объединение нескольких конфигов и подстановка переменных окружения не выполняются. Значения по умолчанию применяются только к пропущенным необязательным полям; отсутствие самого файла — явная ошибка.
+CFG-01. `/etc/moneroid/moneroid.toml` is read by default; `--config PATH` selects another file. No search in the cwd, no automatic merging of several configs, no environment substitution. Defaults apply only to omitted optional fields; a missing file is an explicit error.
 
-CFG-02. Собственная схема строгая: неизвестные ключи, повторяющиеся ключи, неверные типы и неподдерживаемая `schema_version` запрещены. Пути абсолютные; shell-выражения не вычисляются. `refresh_ms`: 500–10000 включительно.
+CFG-02. The own schema is strict: unknown keys, duplicate keys, wrong types and an unsupported `schema_version` are rejected. Paths are absolute; shell expressions are not evaluated. `refresh_ms`: 500–10000 inclusive.
 
-CFG-03. Два имени units различны, оканчиваются `.service`, не начинаются с `-`, не содержат glob, пробелы, управляющие символы или `/`. Для v1 допускается форма `[A-Za-z0-9_][A-Za-z0-9_.@:-]*\.service`; поиск подходящих служб по шаблону не выполняется.
+CFG-03. The two unit names differ, end with `.service`, do not start with `-`, contain no glob, spaces, control characters or `/`. For v1 the form `[A-Za-z0-9_][A-Za-z0-9_.@:-]*\.service` is allowed; no pattern search for matching services.
 
-CFG-04. `api_url` — HTTP с буквальным loopback IP (`127.0.0.0/8` либо `::1`), явным портом 1–65535, без credentials/query/fragment и произвольного path. Клиент не использует proxy из окружения и не следует redirect. Удалённый API XMRig не поддерживается.
+CFG-04. `api_url` is HTTP with a literal loopback IP (`127.0.0.0/8` or `::1`), an explicit port 1–65535, without credentials/query/fragment or an arbitrary path. The client uses no proxy from the environment and follows no redirects. A remote XMRig API is not supported.
 
-CFG-05. `token_file` опционален; содержимое читается при обращении к API, наружу не выводится и передаётся только в заголовке Bearer. Размер ограничен 4 KiB; окружающий перевод строки удаляется, внутренние CR/LF запрещены. Ошибка чтения не мешает управлению службами.
+CFG-05. `token_file` is optional; its content is read when calling the API, never printed and passed only in the Bearer header. Size is limited to 4 KiB; surrounding newlines are stripped, inner CR/LF are rejected. A read error does not prevent service control.
 
-CFG-06. Конфигурация загружается один раз на запуск CLI/TUI. После изменения файла панель следует открыть заново. Команды `version`, `--help`, `config path` не требуют доступных API или работающих служб.
+CFG-06. The configuration is loaded once per CLI/TUI run. After changing the file the dashboard must be reopened. `version`, `--help` and `config path` need no reachable APIs or running services.
 
-CFG-08. `params_file` и `nodes_file` — необязательные абсолютные пути. Команды `node` и проверка `NODE_RPC` при их отсутствии завершаются ошибкой аргументов (`node`) или `skip` (`doctor`). Остальные команды эти поля не читают.
+CFG-07. `expected_id` is a mandatory non-empty string up to 128 characters without control characters. It equals the native XMRig `api.id` and is checked against the `id` field of the reply. A mismatch is `SOURCE_ID_MISMATCH`, not a proof for health. This guards against accidentally attaching to another instance; it is not authentication.
 
-CFG-07. `expected_id` — обязательная непустая строка до 128 символов без управляющих символов. Она совпадает с нативным `api.id` XMRig и проверяется по полю `id` ответа. Несовпадение — `SOURCE_ID_MISMATCH`, нерабочее доказательство для health. Это защита от случайного подключения к другому экземпляру, не механизм аутентификации.
+CFG-08. `params_file` and `nodes_file` are optional absolute paths. Without them the `node` commands end with an argument error and the `NODE_RPC` check is a `skip`. Other commands do not read these fields.
 
-## 6. Контракт CLI
+## 6. CLI contract
 
 ```text
 moneroid [--config PATH] status [--json] [--check]
@@ -182,282 +182,282 @@ moneroid version
 moneroid --help
 ```
 
-CLI-01. Отсутствующий target означает `all`; неизвестный target — ошибка до вызова systemd. Без подкоманды выводится помощь с кодом 0. Флаг `--config` располагается перед подкомандой; её локальные флаги — после подкоманды и до позиционного target. Help показывает копируемые примеры этой грамматики.
+CLI-01. A missing target means `all`; an unknown target is an error before systemd is called. Without a subcommand help is printed with code 0. `--config` goes before the subcommand; its local flags after the subcommand and before the positional target. Help shows copy-pasteable examples of this grammar.
 
-CLI-02. `status` делает один сбор и выводит частичный результат даже при отказе всех API. После успешного чтения собственной конфигурации обычный `status` завершается 0, если все ограниченные попытки сбора завершились и snapshot удалось вывести, независимо от состояний источников. Внутренняя ошибка построения/вывода — 1. `status --check` возвращает 0 только при `health.level=ok`, иначе 1. С `--json --check` JSON всё равно выводится целиком.
+CLI-02. `status` does one collection and prints a partial result even when every API fails. After the own configuration is read, a plain `status` exits 0 if all bounded collection attempts finished and the snapshot could be printed, regardless of source states. An internal build/output error is 1. `status --check` returns 0 only with `health.level=ok`, otherwise 1. With `--json --check` the full JSON is still printed.
 
-CLI-03. JSON направляется только в stdout, без цвета, progress и текстовых префиксов. Диагностика самого вызова — в stderr. Поля источников с ошибками остаются в snapshot. `status --json` и `doctor --json` имеют раздельные документированные схемы с `schema_version=1`.
+CLI-03. JSON goes to stdout only, without colour, progress or text prefixes. Diagnostics of the call itself go to stderr. Source fields with errors stay in the snapshot. `status --json`, `doctor --json` and `payouts --json` have separate documented schemas with `schema_version=1`.
 
-CLI-04. `start`/`stop` идемпотентны по смыслу systemd. Перед `start`/`restart` unit в состоянии `Result=start-limit-hit` получает `systemctl reset-failed` (иначе systemd отказывает до конца интервала); polkit-правило включает этот verb. `restart` действительно останавливает и запускает выбранные службы, в том числе запускает ранее остановленную выбранную службу. Только `restart all` затрагивает обе; `restart p2pool` не перезапускает XMRig.
+CLI-04. `start`/`stop` are idempotent in the systemd sense. Before `start`/`restart` a unit in `Result=start-limit-hit` gets `systemctl reset-failed` (otherwise systemd refuses until the interval ends); the polkit rule includes that verb. `restart` really stops and starts the selected services, including starting a previously stopped selected service. Only `restart all` touches both; `restart p2pool` does not restart XMRig.
 
-CLI-05. После управляющей операции выводятся результат systemd и наблюдаемые состояния выбранных служб. Ошибка/timeout не маскирует частичный успех. Успешный `start` означает завершение задания systemd и active/running выбранных служб при контрольном чтении; не означает синхронизацию, положительный hashrate или выплату.
+CLI-05. After a control operation the systemd result and the observed states of the selected services are printed. An error/timeout does not mask partial success. A successful `start` means the systemd job finished and the selected services are active/running at the control read; it does not mean sync, positive hashrate or a payout.
 
-CLI-06. `logs` по умолчанию выводит последние 100 записей выбранных units и завершается. `--follow` продолжает чтение; `--lines N` принимает 1–10000. Используется `journalctl` с точными `-u`, `--no-pager` и безопасным текстовым выводом; shell не запускается. `Ctrl-C` завершает просмотр, службы не останавливает.
+CLI-06. `logs` prints the last 100 entries of the selected units by default and exits. `--follow` keeps reading; `--lines N` accepts 1–10000. `journalctl` is used with exact `-u`, `--no-pager` and safe text output; no shell is started. `Ctrl-C` ends the view and does not stop the services.
 
-CLI-07. Минимальные коды завершения:
+CLI-07. Minimal exit codes:
 
-| Код | Значение |
+| Code | Meaning |
 |---|---|
-| 0 | Команда выполнена по своему контракту |
-| 1 | Невыполненное условие `--check`, ошибки doctor или неуспешная/частичная операция |
-| 2 | Ошибка аргументов, синтаксиса или значений собственной конфигурации |
-| 3 | Отказ в правах, препятствующий самой команде: чтение собственного конфига, control или logs |
-| 4 | Истёк срок управляющей операции; итоговое состояние может быть ещё не определено |
-| 130 | Прерывание CLI через Ctrl-C |
+| 0 | The command fulfilled its contract |
+| 1 | An unmet `--check` condition, doctor failures, or an unsuccessful/partial operation |
+| 2 | Argument, syntax or own-configuration value error |
+| 3 | A permission refusal that blocks the command itself: reading the own config, control or logs |
+| 4 | The control operation timed out; the final state may still be undetermined |
+| 130 | The CLI was interrupted with Ctrl-C |
 
-Ошибки отдельных источников в snapshot не превращаются в код 3/4 для обычного `status`. Неработающий systemd также представляется как недоступный источник, если конфигурация прочитана.
+Errors of individual sources in the snapshot do not turn into code 3/4 for a plain `status`. A non-working systemd is also presented as an unavailable source once the configuration is read.
 
-Ctrl-C в `logs --follow` и в `tui` — штатный способ выхода, код 0. Код 130 относится только к прерванным `status`, `doctor` и управляющим операциям.
+Ctrl-C in `logs --follow` and in `tui` is the normal way out, code 0. Code 130 applies only to interrupted `status`, `doctor` and control operations.
 
-### 6.1. Выбор Monero-ноды
+### 6.1. Choosing the Monero node
 
-Принято владельцем 2026-09-11 как замена ручного выбора ноды; реализуется минимально.
+Accepted by the owner on 2026-09-11 as a replacement for manual node choice; implemented minimally.
 
-NODE-01. Кандидаты — текстовый файл `nodes_file`: одна нода на строку `host rpc_port zmq_port`, `#` — комментарий, пустые строки игнорируются. Пример-файл поставляется с community-нодами, поддерживающими ZMQ, с указанием источника списка и даты проверки; владелец правит файл сам. Moneroid не содержит встроенного списка, не скачивает и не обновляет его.
+NODE-01. Candidates are a text file `nodes_file`: one node per line `host rpc_port zmq_port`, `#` is a comment, empty lines are ignored. The example file ships with community nodes that support ZMQ, with the list source and check date; the owner edits the file. Moneroid has no built-in list and neither downloads nor updates it.
 
-NODE-02. `node list`: для каждой ноды параллельно выполняется JSON-RPC `get_info`, затем `get_block_headers_range` на 100 блоков (этот вызов P2Pool делает при старте; на фильтруемых сетях он ломается при рабочем `get_info` — стенд Zeonux 2026-09-14) и ZMTP-рукопожатие с ZMQ-портом (обмен 10-байтной сигнатурой; открытый TCP-порт не доказывает наличие ZMQ-publisher — стенд 2026-09-14); каждый шаг — timeout 3 s, HTTP без proxy из окружения и redirect, body ≤ 1 MiB, без credentials. Если `params_file` задаёт `socks5 = IP:port`, проба идёт через этот SOCKS5-прокси — так же, как P2Pool, включая его исключение: адреса loopback/private/link-local соединяются напрямую (`is_private_address` в P2Pool; нужно для Tor/I2P с локальной нодой). Имя резолвится локально, адреса пробуются по очереди (IPv4 первыми), каждый — полной проверкой; `select` записывает адрес, который прошёл проверку (P2Pool берёт первый DNS-ответ). Выводятся latency, `synchronized`, `height`, `headers_ok`, доступность ZMQ, ошибка. Ранжирование: только `synchronized=true` с `headers_ok` и доступным ZMQ, по возрастанию latency. Команда ничего не пишет; `--json` — стабильная схема `schema_version=1`.
+NODE-02. `node list`: for every node, in parallel, JSON-RPC `get_info`, then `get_block_headers_range` for 100 blocks (P2Pool makes this call at start; on filtering networks it breaks while `get_info` works — Zeonux stand 2026-09-14) and a ZMTP handshake with the ZMQ port (a 10-byte signature exchange; an open TCP port does not prove a ZMQ publisher — stand 2026-09-14); each step has a 3 s timeout, HTTP without an environment proxy or redirects, body ≤ 1 MiB, no credentials. If `params_file` sets `socks5 = IP:port`, the probe goes through that SOCKS5 proxy — as P2Pool does, including its exception: loopback/private/link-local addresses connect directly (`is_private_address` in P2Pool; needed for Tor/I2P with a local node). The name is resolved locally, the addresses are tried in turn (IPv4 first), each with the full check; `select` writes the address that passed (P2Pool takes the first DNS answer). Printed: latency, `synchronized`, `height`, `headers_ok`, ZMQ availability, error. Ranking: only `synchronized=true` with `headers_ok` and available ZMQ, by ascending latency. The command writes nothing; `--json` is a stable schema with `schema_version=1`.
 
-NODE-03. `node select`: выполняет NODE-02, берёт первую ноду ранжирования и переписывает в `params_file` ровно три ключа `host`, `rpc-port`, `zmq-port`: существующие строки этих ключей заменяются, отсутствующие добавляются в конец; остальные байты файла сохраняются. Запись атомарная — временный файл в том же каталоге, сохранение owner/mode, rename. Нужны права записи — обычно `sudo moneroid node select`. `--dry-run` печатает выбор и заменяемые строки без записи. После записи печатается напоминание о `restart p2pool`; автоматический restart не выполняется. Нет кандидатов → код 1; нет прав → код 3.
+NODE-03. `node select`: runs NODE-02, takes the first ranked node and rewrites in `params_file` exactly three keys `host`, `rpc-port`, `zmq-port`: existing lines of these keys are replaced, absent ones appended; the other bytes of the file are preserved. The write is atomic — a temporary file in the same directory, owner/mode preserved, rename. Write permission is needed — usually `sudo moneroid node select`. `--dry-run` prints the choice and the lines to be replaced without writing. After writing a reminder about `restart p2pool` is printed; no automatic restart. No candidates → code 1; no permission → code 3.
 
-NODE-04. Не входит в v1: выбор ноды при `start`, фоновое переключение, интеграция в TUI, RPC с логином/паролем, TLS.
+NODE-04. Not in v1: node choice on `start`, background switching, TUI integration, RPC with login/password, TLS.
 
-NODE-05. Удалённая нода узнаёт IP хоста и адрес выплат (P2Pool передаёт его в `get_block_template`). Документация говорит это явно и называет локальную ноду более приватным вариантом.
+NODE-05. A remote node learns the host's IP and the payout address (P2Pool sends it in `get_block_template`). The documentation says so explicitly and calls a local node the more private option.
 
-### 6.2. Выплаты
+### 6.2. Payouts
 
-Принято владельцем 2026-09-16. Единственное место, где Moneroid читает строки журнала: выплаты P2Pool сообщает только в лог, это события, а не метрики; правило «журнал не источник метрик» (§3.1) сохраняется.
+Accepted by the owner on 2026-09-16. The only place where Moneroid reads journal lines: P2Pool reports payouts only in its log, they are events, not metrics; the rule "the journal is not a metrics source" (§3.1) stands.
 
-PAY-01. `payouts` запрашивает у journald только совпадающие строки unit P2Pool: `journalctl -q -o short-iso -u UNIT -g 'got a payout of|didn't get a payout in block' [--since TIME]`. Формат строки зафиксирован по исходникам P2Pool 4.18 (`src/p2pool.cpp`): `Your wallet <адрес> got a payout of <целое>.<12 цифр> XMR in block <высота>`. Сумма разбирается как целое в атомарных единицах.
+PAY-01. `payouts` asks journald only for the matching lines of the P2Pool unit: `journalctl -q -o short-iso -u UNIT -g 'got a payout of|didn't get a payout in block' [--since TIME]`. The line format is fixed by the P2Pool 4.18 sources (`src/p2pool.cpp`): `Your wallet <address> got a payout of <integer>.<12 digits> XMR in block <height>`. The amount is parsed as an integer in atomic units.
 
-PAY-02. Вывод (CLI и панель по клавише `p`): время в локальной зоне системы, сумма XMR, высота блока, итог; отдельно — число блоков пула, найденных без вашей доли в PPLNS-окне. Адрес кошелька в вывод и JSON не попадает (SEC-07). `--json`: `schema_version=1`, `payouts[]{at, atomic_units, xmr, block}`, `total_atomic_units`, `total_xmr`, `blocks_without_payout`.
+PAY-02. Output (CLI and the dashboard on `p`): time in the system's local zone, XMR amount, block height, total; separately the number of pool blocks found without a share of yours in the PPLNS window. The wallet address never reaches the output or JSON (SEC-07). `--json`: `schema_version=1`, `payouts[]{at, atomic_units, xmr, block}`, `total_atomic_units`, `total_xmr`, `blocks_without_payout`.
 
-PAY-03. Отсутствие совпадений — не ошибка (journalctl возвращает 1 без stderr). Отказ в доступе к журналу — код 3. Изменение формата строки в будущих версиях P2Pool даёт пустой список, а не ложные суммы; проверяется при обновлении upstream (A20). Источник истины о деньгах — кошелёк; внешние обозреватели (`p2pool.observer`) не используются: они связывают IP наблюдателя с адресом выплат.
+PAY-03. No matches is not an error (journalctl returns 1 without stderr). A journal access refusal is code 3. A changed line format in future P2Pool versions yields an empty list, not false amounts; checked at upstream updates (A20). The source of truth about money is the wallet; external observers (`p2pool.observer`) are not used: they link the observer's IP with the payout address.
 
-## 7. systemd и жизненный цикл
+## 7. systemd and lifecycle
 
-SYS-01. Службы запускают непосредственно upstream-бинарники с нативным конфигом. Moneroid не используется в `ExecStart`, `ExecStartPre`, `ExecStartPost` или watchdog. После удаления бинарника Moneroid настроенные службы продолжают работать.
+SYS-01. The services run the upstream binaries directly with their native configs. Moneroid is not used in `ExecStart`, `ExecStartPre`, `ExecStartPost` or a watchdog. After removing the Moneroid binary the configured services keep working.
 
-SYS-02. В поставляемых units: `Type=exec`, `Restart=on-failure`, `RestartSec=5s`, `StartLimitIntervalSec=60s`, `StartLimitBurst=5`, `TimeoutStopSec=30s`, `KillMode=control-group`, вывод в journald, `StandardInput=null`. Корректное завершение по SIGTERM проверяется отдельно на обеих upstream-программах.
+SYS-02. In the shipped units: `Type=exec`, `Restart=on-failure`, `RestartSec=5s`, `StartLimitIntervalSec=60s`, `StartLimitBurst=5`, `TimeoutStopSec=30s`, `KillMode=control-group`, output to journald, `StandardInput=null`. Clean termination on SIGTERM is verified separately on both upstream programs.
 
-SYS-03. Unit XMRig содержит `After=moneroid-p2pool.service`. Между двумя службами нет `Wants`, `Requires`, `BindsTo`, `PartOf` или общей пользовательской `.target`. Обе имеют `WantedBy=multi-user.target` и включаются для автозапуска явно. `After` задаёт порядок только при наличии обоих заданий: старт P2Pool раньше XMRig, остановка в обратном порядке. [systemd.unit](https://github.com/systemd/systemd/blob/v261/man/systemd.unit.xml)
+SYS-03. The XMRig unit contains `After=moneroid-p2pool.service`. There is no `Wants`, `Requires`, `BindsTo`, `PartOf` or a shared user `.target` between the two services. Both have `WantedBy=multi-user.target` and are enabled for autostart explicitly. `After` orders only when both jobs exist: P2Pool starts before XMRig, stops in reverse order. [systemd.unit](https://github.com/systemd/systemd/blob/v261/man/systemd.unit.xml)
 
-SYS-04. Общая операция передаёт оба точных unit-имени в один вызов `systemctl`; одиночная — один unit. Порядок обеспечивает systemd, а XMRig самостоятельно переподключается к P2Pool. Готовность Stratum и синхронизация не включаются в условие запуска.
+SYS-04. A joint operation passes both exact unit names to one `systemctl` call; a single one — one unit. Ordering is systemd's, and XMRig reconnects to P2Pool on its own. Stratum readiness and sync are not part of the start condition.
 
-Общая операция не является атомарной: возможен частичный результат. Откат не выполняется, итоговое состояние читается и при nonzero/timeout.
+A joint operation is not atomic: a partial result is possible. No rollback is performed; the final state is read even on nonzero/timeout.
 
-SYS-05. `Type=exec` позволяет увидеть ошибку исполнения бинарника, но не завершение его инициализации. Поэтому Moneroid не печатает `P2Pool synced` или `Mining ready` по успешному `systemctl start`. [systemd.service](https://github.com/systemd/systemd/blob/v261/man/systemd.service.xml)
+SYS-05. `Type=exec` shows an execution error of the binary but not the end of its initialization. Therefore Moneroid never prints `P2Pool synced` or `Mining ready` after a successful `systemctl start`. [systemd.service](https://github.com/systemd/systemd/blob/v261/man/systemd.service.xml)
 
-SYS-06. Состояние читается через `systemctl show --all --property=...`, а не разбор локализованного `systemctl status`. Нужны `Id`, `LoadState`, `ActiveState`, `SubState`, `UnitFileState`, `Result`, `MainPID`, `ExecMainStatus`, `NRestarts`, `InvocationID`, `ActiveEnterTimestampMonotonic`, `InactiveExitTimestampMonotonic`. Отсутствующие свойства допустимы и обозначаются как неизвестные.
+SYS-06. State is read through `systemctl show --all --property=...`, not by parsing the localized `systemctl status`. Needed: `Id`, `LoadState`, `ActiveState`, `SubState`, `UnitFileState`, `Result`, `MainPID`, `ExecMainStatus`, `NRestarts`, `InvocationID`, `ActiveEnterTimestampMonotonic`, `InactiveExitTimestampMonotonic`. Missing properties are allowed and shown as unknown.
 
-Для сопоставления времени процесса дополнительно читаются `ExecMainStartTimestamp` и `ExecMainStartTimestampMonotonic`. Doctor отдельно запрашивает эффективные `After`, `Wants`, `Requires`, `BindsTo`, `PartOf`, `RuntimeDirectory` и `RuntimeDirectoryPreserve`, учитывая drop-ins и фактический `Id`.
+For matching process time `ExecMainStartTimestamp` and `ExecMainStartTimestampMonotonic` are read as well. Doctor separately asks for the effective `After`, `Wants`, `Requires`, `BindsTo`, `PartOf`, `RuntimeDirectory` and `RuntimeDirectoryPreserve`, honouring drop-ins and the actual `Id`.
 
-SYS-07. Команды запускаются массивом аргументов через `os/exec`, с отключённым pager и интерактивным запросом авторизации. Никаких `sh -c`, `eval`, произвольных executable/command-prefix из TOML и управления PID по имени процесса.
+SYS-07. Commands run as argument arrays through `os/exec`, with the pager and interactive authorization prompts disabled. No `sh -c`, `eval`, arbitrary executable/command prefixes from TOML or PID management by process name.
 
-Нормативная форма control: `systemctl --no-pager --no-ask-password VERB -- UNIT...`.
+Normative control form: `systemctl --no-pager --no-ask-password VERB -- UNIT...`.
 
-SYS-08. Deadline операции control — 90 секунд, последующего чтения состояния — до 3 секунд. При отмене завершается только клиент systemctl; уже переданное systemd задание может продолжиться. Moneroid это сообщает и предлагает посмотреть фактический status. Автоматического отката и компенсирующих stop/restart нет.
+SYS-08. The control operation deadline is 90 seconds, the subsequent state read up to 3 seconds. On cancel only the systemctl client ends; a job already handed to systemd may continue. Moneroid says so and suggests checking the actual status. No automatic rollback or compensating stop/restart.
 
-SYS-09. Одновременно выполняется не более одной управляющей операции внутри одного процесса Moneroid; повторное нажатие в TUI не создаёт дубликат. Между независимыми процессами команды упорядочивает systemd. Отменённое/замещённое внешней командой задание отображается как конфликт результата, без собственного lock-daemon.
+SYS-09. At most one control operation runs inside one Moneroid process at a time; a repeated key press in the TUI creates no duplicate. Between independent processes systemd orders the commands. A job cancelled/replaced by an external command shows as a result conflict, without an own lock daemon.
 
-SYS-10. Для сторонних units сохраняется их существующая семантика зависимостей. Точные гарантии из SYS-03/04 действуют для поставляемых units; `doctor` предупреждает об отличающихся зависимостях и отсутствии нужного `After`. Moneroid не переписывает сторонние units.
+SYS-10. Foreign units keep their existing dependency semantics. The exact guarantees of SYS-03/04 hold for the shipped units; `doctor` warns about differing dependencies and a missing `After`. Moneroid does not rewrite foreign units.
 
-SYS-11. P2Pool unit задаёт `RuntimeDirectory=moneroid-p2pool-api`, `RuntimeDirectoryPreserve=no`, `RuntimeDirectoryMode=0750`; постоянные каталоги — `StateDirectory=moneroid/p2pool` и `moneroid/xmrig` (0700). Systemd создаёт временный каталог при старте и удаляет его при остановке; постоянные upstream cache/peers остаются в `/var/lib/moneroid/p2pool`. Для сторонних units без этого профиля свежесть и связь файлов с текущим процессом требуют отдельной проверки; отсутствие доказательства означает unknown.
+SYS-11. The P2Pool unit sets `RuntimeDirectory=moneroid-p2pool-api`, `RuntimeDirectoryPreserve=no`, `RuntimeDirectoryMode=0750`; the persistent directories are `StateDirectory=moneroid/p2pool` and `moneroid/xmrig` (0700). Systemd creates the temporary directory at start and removes it at stop; the persistent upstream cache/peers stay in `/var/lib/moneroid/p2pool`. For foreign units without this profile the freshness and the link of the files to the current process need a separate check; no proof means unknown.
 
-## 8. Права и безопасная эксплуатация
+## 8. Permissions and safe operation
 
-SEC-01. CLI status и TUI запускаются обычным пользователем. В базовой установке P2Pool и XMRig имеют отдельные системные учётные записи без интерактивного входа. Конфиги и units принадлежат root и не доступны службам на запись.
+SEC-01. The CLI status and the TUI run as a regular user. In the base installation P2Pool and XMRig have separate system accounts without interactive login. Configs and units belong to root and are not writable by the services.
 
-SEC-02. Одна группа `moneroid` для операторов: чтение Data API, чтение нативных конфигов и (через опциональное polkit-правило) управление двумя units. Разделение «наблюдатели/операторы» отменено по результату стенда: при stdin без tty P2Pool публикует в `local/console` порт и cookie своей TCP-консоли, поэтому право чтения каталога API равнозначно управлению P2Pool. Каталог API — `RuntimeDirectory` unit P2Pool с `User=moneroid-p2pool`, `Group=moneroid`, `RuntimeDirectoryMode=0750`, `UMask=0027`: подкаталоги 0750, файлы 0640 (проверено; setgid не требуется). Конфиги — `root:moneroid 0640`; `StateDirectory` служб — 0700. Оператор не получает запись в API или конфиги.
+SEC-02. One group `moneroid` for operators: reading the Data API, reading the native configs and (through the optional polkit rule) controlling the two units. The observers/operators split was dropped after the stand: with stdin not a tty P2Pool publishes in `local/console` the port and cookie of its TCP console, so read access to the API directory equals control of P2Pool. The API directory is the `RuntimeDirectory` of the P2Pool unit with `User=moneroid-p2pool`, `Group=moneroid`, `RuntimeDirectoryMode=0750`, `UMask=0027`: subdirectories 0750, files 0640 (verified; no setgid needed). Configs are `root:moneroid 0640`; the services' `StateDirectory` is 0700. The operator gets no write access to the API or the configs.
 
-SEC-03. Управление использует существующие права systemd/polkit; в TUI нет парольного prompt. Без прав операция отклоняется, наблюдение продолжается. Администратор может выполнить CLI через sudo вне TUI либо установить опциональное polkit-правило: только `manage-units`, только два выбранных точных имени и только `start/stop/restart`, только явная группа операторов. Правило и создание группы требуют отдельного административного шага установки.
+SEC-03. Control uses the existing systemd/polkit rights; the TUI has no password prompt. Without rights the operation is refused and observation continues. The administrator may run the CLI through sudo outside the TUI or install the optional polkit rule: only `manage-units`, only the two selected exact names and only `start/stop/restart` (plus `reset-failed`), only the explicit operator group. The rule and the group creation are a separate administrative installation step.
 
-SEC-04. Запрещено предлагать NOPASSWD на весь `moneroid`, произвольный `systemctl` или редактируемые пользователем units. Чтение журналов регулируется системой отдельно; отсутствие этого права не означает неисправность майнинга.
+SEC-04. Suggesting NOPASSWD for all of `moneroid`, arbitrary `systemctl` or user-editable units is forbidden. Journal reading is governed by the system separately; lacking that right does not mean mining is broken.
 
-SEC-05. API XMRig в примерах привязан к loopback и работает в restricted/read-only режиме. Moneroid выполняет только GET, не использует управляющий API. Локальный токен поддерживается, не передаётся в argv и не попадает в snapshot, журнал или сообщение HTTP-ошибки.
+SEC-05. The XMRig API in the examples is bound to loopback and runs in restricted/read-only mode. Moneroid does GET only and does not use the control API. A local token is supported, is not passed in argv and never reaches the snapshot, the journal or an HTTP error message.
 
-Базовый пример не требует токена. При его включении файл имеет `root:moneroid-observers 0640`, значение совпадает с `http.access-token` нативного конфига; ротация требует обновления обоих значений и restart XMRig. HTTP 401/403 показывается как ошибка авторизации, а не остановка процесса.
+The base example needs no token. When enabled, the file is `root:moneroid 0640`, the value equals `http.access-token` of the native config; rotation updates both values and restarts XMRig. HTTP 401/403 is shown as an authorization error, not a stopped process.
 
-SEC-06. Stratum по умолчанию слушает loopback. Data API не публикуется по HTTP. Открытие портов, изменение firewall, UPnP и системных настроек Moneroid не выполняет. Пример P2Pool явно отключает UPnP.
+SEC-06. Stratum listens on loopback by default. The Data API is not published over HTTP. Opening ports, changing the firewall, UPnP and system settings are not done by Moneroid. The P2Pool example explicitly disables UPnP.
 
-SEC-07. Адрес выплат остаётся в нативном конфиге и не отображается по умолчанию в status/JSON. Seed, приватные ключи и пароли кошелька не запрашиваются. Endpoint-строки и ошибки перед выводом удаляют URL userinfo и токены; конфиги не копируются целиком в отчёты.
+SEC-07. The payout address stays in the native config and is not shown by default in status/JSON. Seeds, private keys and wallet passwords are never requested. Endpoint strings and errors have URL userinfo and tokens removed before output; configs are not copied wholesale into reports.
 
-SEC-08. Консервативный unit-профиль использует `NoNewPrivileges=yes`, `PrivateTmp=yes`, `ProtectSystem=strict`, `ProtectHome=yes` и явно разрешённые каталоги состояния. Опции, несовместимые с RandomX/JIT, не включаются: в частности, `MemoryDenyWriteExecute=yes` недопустим. Бинарники располагаются вне home. Хостовый MSR/hugepage tuning — отдельная административная процедура; Moneroid не делает её обязательной и не обещает максимальный hashrate без неё. Следствие непривилегированного `User=`: XMRig не может применить собственный MSR-mod, и этот hashrate-штраф является осознанным выбором профиля. Инструкция называет это явно и описывает применение MSR отдельной административной процедурой, а не изменением unit XMRig.
+SEC-08. The conservative unit profile uses `NoNewPrivileges=yes`, `PrivateTmp=yes`, `ProtectSystem=strict`, `ProtectHome=yes` and explicitly allowed state directories. Options incompatible with RandomX/JIT are not enabled: in particular `MemoryDenyWriteExecute=yes` is not allowed. Binaries live outside home. Host MSR/hugepage tuning is a separate administrative procedure; Moneroid neither requires it nor promises maximum hashrate without it. A consequence of the unprivileged `User=`: XMRig cannot apply its own MSR mod, and that hashrate penalty is a deliberate choice of the profile. The instructions say so explicitly and describe MSR as a separate administrative procedure (the optional oneshot unit), not a change to the XMRig unit.
 
-## 9. Сбор данных, ошибки и свежесть
+## 9. Data collection, errors and freshness
 
-DATA-01. Одна операция collection читает systemd, XMRig и P2Pool независимо. Сбой одного источника не отменяет другие. Deadline сбора — 3 секунды; HTTP/systemctl read — 1 секунда на попытку. Для обычной TUI новый сбор не начинается, пока прежний не завершился; пропущенные ticks не накапливаются.
+DATA-01. One collection reads systemd, XMRig and P2Pool independently. A failure of one source does not cancel the others. The collection deadline is 3 seconds; an HTTP/systemctl read is 1 second per attempt. In the normal TUI a new collection does not start until the previous one finished; skipped ticks do not accumulate.
 
-DATA-02. Читаются только известные файлы P2Pool: `local/stratum`, `local/p2p`, `network/stats`, `pool/stats`. `pool/blocks` и история выплат не нужны для v1. Предельный размер каждого файла и HTTP body — 1 MiB; объём stderr/stdout коротких диагностических subprocess также ограничен. Источник должен быть обычным файлом на локальной файловой системе, не FIFO/device. Network filesystem для Data API не поддерживается.
+DATA-02. Only the known P2Pool files are read: `local/stratum`, `local/p2p`, `network/stats`, `pool/stats`. `pool/blocks` and the payout history are not needed for v1. The limit for each file and HTTP body is 1 MiB; the stderr/stdout volume of short diagnostic subprocesses is limited too. A source must be a regular file on a local file system, not a FIFO/device. A network file system for the Data API is not supported.
 
-DATA-03. Неизвестные поля upstream JSON игнорируются. Отсутствующее/null/неверно типизированное необязательное поле превращается в `null` и локальную причину недоступности, не уничтожая соседние метрики. Повреждённый JSON и не-object верхнего уровня делают недоступным весь соответствующий источник. Числа сохраняют точность счётчиков, не допускают NaN/Infinity, отрицательные значения для counts/rates считаются неверными.
+DATA-03. Unknown upstream JSON fields are ignored. A missing/null/wrongly typed optional field becomes `null` and a local unavailability reason, without destroying the neighbouring metrics. Corrupted JSON and a non-object top level make the whole source unavailable. Numbers keep counter precision, NaN/Infinity are rejected, negative counts/rates are invalid.
 
-DATA-04. Для исчезновения/пустого/повреждённого файла P2Pool допускается одна повторная попытка через 50 ms в рамках deadline. Для permission denied и превышения размера retry не делается. HTTP не повторяется внутри одного цикла.
+DATA-04. For a vanished/empty/corrupted P2Pool file one retry after 50 ms within the deadline is allowed. No retry for permission denied and size overflow. HTTP is not retried within one cycle.
 
-DATA-05. Последний валидный ответ хранится только в памяти текущей CLI/TUI-сессии. При неудачном обновлении он может отображаться с явной пометкой stale/error и исходным временем; время последней удачи не обновляется. В отдельном новом `status` памяти прошлых запусков нет.
+DATA-05. The last valid reply is kept only in memory of the current CLI/TUI session. On a failed refresh it may be shown with an explicit stale/error mark and the original time; the last success time is not updated. A separate new `status` has no memory of previous runs.
 
-DATA-06. Для каждого источника сохраняются отдельно `observed_at`, `last_success_at`, `source_updated_at`, `age_seconds`, `state`, `error_code`. У HTTP `source_updated_at=null`, время успешного HTTP-ответа является временем наблюдения. У файлов возраст определяется временем обновления производителя/mtime, а не успешным повторным чтением старого JSON.
+DATA-06. For every source `observed_at`, `last_success_at`, `source_updated_at`, `age_seconds`, `state` and `error_code` are kept separately. For HTTP `source_updated_at=null`; the time of a successful HTTP reply is the observation time. For files the age comes from the producer's update time/mtime, not from a successful re-read of old JSON.
 
-DATA-07. Источники P2Pool имеют разную частоту записи. Одинаковый порог stale для всех файлов запрещён. Событийные `network/stats`, `pool/stats` и `local/stratum` показывают возраст; отсутствие события само по себе не становится ошибкой. Периодическим источником является `local/p2p` (~60 s), порог stale продукта — 180 s.
+DATA-07. P2Pool sources have different write frequencies. One stale threshold for all files is forbidden. The event-driven `network/stats`, `pool/stats` and `local/stratum` show their age; a missing event is not an error by itself. The periodic source is `local/p2p` (~60 s); the product's stale threshold is 180 s.
 
-DATA-08. При изменении `InvocationID`, уменьшении uptime или переходе службы через остановку кэш её данных сбрасывается; график получает разрыв. Файлы от предыдущего запуска, обнаруженные до первой свежей записи текущего процесса, не подтверждают текущее рабочее состояние. Если идентичность источника не доказана, это ограничение отражается в диагностике.
+DATA-08. On a changed `InvocationID`, a decreased uptime or a service passing through a stop, its data cache is dropped and the chart gets a gap. Files from a previous run found before the first fresh write of the current process do not confirm the current working state. If the source identity is not proven, that limitation is reflected in the diagnostics.
 
-Для штатного P2Pool связь поддерживает принадлежащий unit временный каталог, а также проверка, что uptime из local/p2p плюс возраст файла не превышает uptime процесса более чем на 5 s. Для XMRig проверяются expected_id и аналогичная непротиворечивость uptime. Сравнение mtime со стартом использует wall-clock timestamp; uptime — монотонные часы. Несовместимость часов или невозможность сопоставления даёт `SOURCE_SESSION_UNKNOWN`. Не сравнивать wall-clock mtime напрямую с monotonic timestamp.
+For a stock P2Pool the link is supported by the unit-owned temporary directory and by the check that the uptime from local/p2p plus the file age does not exceed the process uptime by more than 5 s. For XMRig the expected_id and a similar uptime consistency are checked. Comparing mtime with the start uses a wall-clock timestamp; uptime uses monotonic clocks. Clock incompatibility or an impossible match gives `SOURCE_SESSION_UNKNOWN`. Never compare a wall-clock mtime directly with a monotonic timestamp.
 
-DATA-09. Новая точка графика добавляется только для свежего значения. Длительность истории — 10 минут, предел — 1200 точек; отсутствующий hashrate оставляет разрыв, реальный ноль рисуется нулём. После выхода из TUI история исчезает.
+DATA-09. A new chart point is added only for a fresh value. History length is 10 minutes, the limit 1200 points; a missing hashrate leaves a gap, a real zero is drawn as zero. After leaving the TUI the history is gone.
 
-## 10. Snapshot и смысл показателей
+## 10. Snapshot and the meaning of metrics
 
-Нормативный список метрик, JSON-полей upstream и единиц вынесен в [контракты источников](research/upstream-contracts.md). В пользовательской модели единицы фиксированы: hashrate в H/s, время в секундах или RFC3339 UTC, difficulty — безразмерное число, счётчики — целые числа, проценты — явно названные поля `_percent`. `null` означает отсутствие знания, 0 — измеренный ноль.
+The normative list of metrics, upstream JSON fields and units is in the [source contracts](research/upstream-contracts.md). In the user model the units are fixed: hashrate in H/s, time in seconds or RFC3339 UTC, difficulty a dimensionless number, counters integers, percentages explicitly named `_percent` fields. `null` means absence of knowledge, 0 a measured zero.
 
-`MiningSnapshot` содержит `schema_version`, `collected_at`, `collection_duration_ms`, `services`, `sources`, `xmrig`, `p2pool`, `health`. Объекты и их поля присутствуют даже при недоступных метриках; коллекции без элементов — `[]`, неизвестные значения — `null`.
+`MiningSnapshot` contains `schema_version`, `collected_at`, `collection_duration_ms`, `services`, `sources`, `xmrig`, `p2pool`, `health`. Objects and their fields are present even with unavailable metrics; collections without elements are `[]`, unknown values are `null`.
 
-Для каждой службы: `unit`, `load_state`, `active_state`, `sub_state`, `enabled_state`, `pid`, `invocation_id`, `uptime_seconds`, `restart_count`, `last_exit_status`, `result`. `enabled_state` не смешивается с `active_state`.
+For every service: `unit`, `load_state`, `active_state`, `sub_state`, `enabled_state`, `pid`, `invocation_id`, `uptime_seconds`, `restart_count`, `last_exit_status`, `result`. `enabled_state` is not mixed with `active_state`.
 
-Для каждой ошибки/предупреждения: стабильный `code`, `severity` (`info|warning|error`), `component`, краткий `message`, `source`. Человекочитаемый текст может уточняться без изменения схемы; автоматизация должна использовать code.
+For every error/warning: a stable `code`, `severity` (`info|warning|error`), `component`, a short `message`, `source`. The human-readable text may be refined without a schema change; automation must use the code.
 
-MET-01. XMRig hashrate и локальный P2Pool hashrate показываются отдельно: это разные оценки с разными окнами усреднения.
+MET-01. The XMRig hashrate and the local P2Pool hashrate are shown separately: they are different estimates with different averaging windows.
 
-MET-02. Принятые/отклонённые submissions XMRig и sidechain shares P2Pool имеют разные подписи и поля. Ни один из этих счётчиков не означает полученную выплату или число блоков Monero.
+MET-02. XMRig accepted/rejected submissions and P2Pool sidechain shares have different labels and fields. None of these counters means a received payout or the number of Monero blocks.
 
-MET-03. Базовый интерфейс не выводит `synced=yes` по наличию файла, открытому порту, количеству peers или положительному hashrate. При отсутствии прямого достоверного признака — `sync: unknown` либо отсутствие этой строки.
+MET-03. The base interface never prints `synced=yes` from a file's presence, an open port, the number of peers or a positive hashrate. Without a direct reliable sign — `sync: unknown` or no such line.
 
-MET-04. `Huge Pages` и `MSR` показываются только при подтверждённой структурированной метрике соответствующей upstream-версии. `/proc/meminfo` может подтвердить наличие выделенных hugepages у хоста, но не их использование конкретным майнером. Недоказанное состояние — `unknown`.
+MET-04. `Huge Pages` and `MSR` are shown only with a confirmed structured metric of the corresponding upstream version. `/proc/meminfo` can confirm that the host has hugepages allocated but not their use by the specific miner. An unproven state is `unknown`.
 
-MET-05. P2Pool network height не называется доказанной высотой синхронизированной Monero-ноды. Sidechain без доказанного источника не угадывается по порту.
+MET-05. The P2Pool network height is not called the proven height of a synchronized Monero node. A sidechain without a proven source is not guessed from the port.
 
-## 11. Health и doctor
+## 11. Health and doctor
 
-H-01. Агрегированный health описывает наблюдаемое состояние компонентов, а не правильность консенсуса, прибыльность или гарантию выплат. Интерфейс всегда позволяет увидеть исходные service/API состояния и причины.
+H-01. The aggregated health describes the observed state of the components, not consensus correctness, profitability or a payout guarantee. The interface always lets the user see the underlying service/API states and reasons.
 
-H-02. `health.level`: `ok`, `degraded`, `stopped`, `starting`, `unknown`. Правила применяются по порядку: (1) unit not-found/error/bad-setting или active_state=failed → degraded; (2) оба loaded/inactive → stopped, их runtime-проблемы не влияют на health; (3) есть activating/deactivating → starting; (4) один active, другой inactive → degraded; (5) состояния служб/обязательные данные недоступны или не сопоставлены экземпляру → unknown; (6) остальные случаи определяются H-03. Старый Result и недоступные API остановленных служб не отменяют stopped. Masked отражается отдельно и запрещает ожидаемый start, но сам по себе не меняет active на inactive.
+H-02. `health.level`: `ok`, `degraded`, `stopped`, `starting`, `unknown`. Rules apply in order: (1) unit not-found/error/bad-setting or active_state=failed → degraded; (2) both loaded/inactive → stopped, their runtime problems do not affect health; (3) any activating/deactivating → starting; (4) one active, the other inactive → degraded; (5) service states/required data unavailable or not matched to the instance → unknown; (6) the remaining cases are decided by H-03. An old Result and unavailable APIs of stopped services do not cancel stopped. Masked is shown separately and forbids the expected start, but by itself does not turn active into inactive.
 
-H-03. Для `ok` нужны обе active/running службы, успешный текущий XMRig summary с совпавшим ID, свежий local/p2p текущего запуска, `xmrig.hashrate_10s_hs>0`, `connection.uptime_ms>0`, P2P connections>0, локальная высота sidechain не отстаёт от peers более чем на 100 блоков (`SIDECHAIN_BEHIND` — shares на отставшей/изолированной цепочке не оплачиваются) и оценка ZMQ age≤600 s. Известное нарушение этих условий → degraded, отсутствующее необходимое поле → unknown. Событийные файлы не обязательны для ok и не подтверждают синхронизацию. Долгая пауза ZMQ означает warning о наблюдаемой активности, не доказанный сетевой разрыв.
+H-03. `ok` requires both services active/running, a successful current XMRig summary with a matching ID, a fresh local/p2p of the current run, `xmrig.hashrate_10s_hs>0`, `connection.uptime_ms>0`, P2P connections>0, the local sidechain height not more than 100 blocks behind the peers (`SIDECHAIN_BEHIND` — shares on a lagging/isolated chain are not paid) and an estimated ZMQ age ≤ 600 s. A known violation of these conditions → degraded, a missing required field → unknown. Event files are not required for ok and do not confirm sync. A long ZMQ pause is a warning about observed activity, not a proven network break.
 
-H-04. Старый ненулевой счётчик rejected не создаёт вечного warning. В разовом status отображаются значения; предупреждение о росте возможно лишь в TUI, если две свежие выборки одной сессии показывают увеличение. Автоматического вывода о причине reject нет. Нулевая sidechain share count также не ошибка сама по себе.
+H-04. An old non-zero rejected counter creates no eternal warning. A one-off status shows the values; a growth warning is possible only in the TUI when two fresh samples of one session show an increase. No automatic conclusion about the reject cause. A zero sidechain share count is not an error by itself either.
 
-DOC-01. `doctor` исключительно читает: собственный config, доступность systemd/units, их свойства/зависимости, доступность и свежесть API, необходимые права. Он не запускает бинарник `--version` из произвольного пути, не стартует службы, не пишет конфиги, не правит kernel/firewall.
+DOC-01. `doctor` only reads: the own config, systemd/unit availability, their properties/dependencies, API availability and freshness, the needed permissions. It does not run a binary's `--version` from an arbitrary path, does not start services, does not write configs, does not touch kernel/firewall.
 
-DOC-02. Проверки возвращают `pass|warn|fail|skip`, код, фактическое наблюдение и рекомендуемое ручное действие. `doctor` exit 1, если есть fail; warn не меняет exit code. Остановленные службы получают warn, проверки их runtime API — skip, отсутствие/ошибочная загрузка units — fail.
+DOC-02. Checks return `pass|warn|fail|skip`, a code, the actual observation and the recommended manual action. `doctor` exits 1 when there is a fail; warn does not change the exit code. Stopped services get warn, checks of their runtime API skip, missing/wrongly loaded units fail.
 
-DOC-03. Полная предварительная проверка нативных конфигов и RPC/ZMQ не обещается. Дублировать параметры node/Stratum ради doctor не требуется. Если подтверждённые данные P2Pool свидетельствуют о проблеме upstream-ноды, doctor показывает этот факт и направляет в журнал. Самостоятельные ZMQ handshake, адресный валидатор Monero и сетевой crawler не входят в v1; RPC ограничен вызовом `get_info` для NODE-02 и проверки `NODE_RPC`.
+DOC-03. A full pre-check of the native configs and RPC/ZMQ is not promised. Duplicating node/Stratum parameters for doctor is not required. If confirmed P2Pool data points to an upstream node problem, doctor shows that fact and points to the journal. An own Monero address validator and a network crawler are not in v1; RPC is limited to `get_info`/headers for NODE-02 and the `NODE_RPC` check.
 
-DOC-04. Следствия не выдаются за причины: `API недоступен` не равно `процесс упал`; `P2Pool active` не равно `node synchronized`; `unit disabled` означает отсутствие заданного автозапуска, но не остановку работающего процесса.
+DOC-04. Consequences are not presented as causes: `API unavailable` ≠ `process crashed`; `P2Pool active` ≠ `node synchronized`; `unit disabled` means no configured autostart, not a stopped running process.
 
-DOC-05. Каталог проверок v1. Ошибка собственной конфигурации завершает `doctor` с кодом 2 до выполнения проверок. `skip` означает, что проверка не имеет смысла при наблюдаемом состоянии (например, runtime API остановленной службы).
+DOC-05. v1 check catalogue. An own-configuration error ends `doctor` with code 2 before the checks. `skip` means the check makes no sense in the observed state (e.g. the runtime API of a stopped service).
 
-| Код проверки | Компонент | Результаты | Условие |
+| Check code | Component | Results | Condition |
 |---|---|---|---|
-| `SYSTEMD_AVAILABLE` | systemd | pass/fail | `systemctl show` отвечает в пределах deadline |
+| `SYSTEMD_AVAILABLE` | systemd | pass/fail | `systemctl show` answers within the deadline |
 | `UNIT_LOADED` | p2pool, xmrig | pass/fail | `LoadState=loaded`; not-found/error/bad-setting → fail |
-| `UNIT_MASKED` | p2pool, xmrig | pass/fail | не masked |
-| `UNIT_ENABLED` | p2pool, xmrig | pass/warn | `UnitFileState` enabled; иначе warn с `UNIT_DISABLED` |
-| `UNIT_ACTIVE` | p2pool, xmrig | pass/warn/fail | active → pass; inactive → warn; failed → fail с `Result`, `ExecMainStatus`, `NRestarts` |
-| `UNIT_ORDERING` | xmrig | pass/warn | эффективный `After` содержит unit P2Pool |
-| `UNIT_DEPENDENCIES` | p2pool, xmrig | pass/warn | нет `Wants/Requires/BindsTo/PartOf` между units; иначе `DEPENDENCIES_DIFFER` |
-| `UNIT_RUNTIME_DIR` | p2pool | pass/warn | `RuntimeDirectory` соответствует `data_api_dir`, `RuntimeDirectoryPreserve=no`; иначе связь файлов с процессом недоказуема |
-| `DATA_API_DIR` | p2pool | pass/fail/skip | обычный каталог на локальной ФС, читаем; permission denied → fail; unit inactive → skip |
-| `DATA_API_P2P` | p2pool | pass/warn/skip | `local/p2p` валиден, не stale, принадлежность текущему запуску не опровергнута |
-| `DATA_API_EVENT_FILES` | p2pool | pass/warn/skip | `local/stratum`, `network/stats`, `pool/stats` читаемы и валидны; возраст показывается, не влияет на результат |
+| `UNIT_MASKED` | p2pool, xmrig | pass/fail | not masked |
+| `UNIT_ENABLED` | p2pool, xmrig | pass/warn | `UnitFileState` enabled; otherwise warn with `UNIT_DISABLED` |
+| `UNIT_ACTIVE` | p2pool, xmrig | pass/warn/fail | active → pass; inactive → warn; failed → fail with `Result`, `ExecMainStatus`, `NRestarts` |
+| `UNIT_ORDERING` | xmrig | pass/warn | the effective `After` contains the P2Pool unit |
+| `UNIT_DEPENDENCIES` | p2pool, xmrig | pass/warn | no `Wants/Requires/BindsTo/PartOf` between the units; otherwise `DEPENDENCIES_DIFFER` |
+| `UNIT_RUNTIME_DIR` | p2pool | pass/warn | `RuntimeDirectory` matches `data_api_dir`, `RuntimeDirectoryPreserve=no`; otherwise the link of the files to the process is unprovable |
+| `DATA_API_DIR` | p2pool | pass/fail/skip | a regular directory on a local FS, readable; permission denied → fail; unit inactive → skip |
+| `DATA_API_P2P` | p2pool | pass/warn/skip | `local/p2p` valid, not stale, membership in the current run not refuted |
+| `DATA_API_EVENT_FILES` | p2pool | pass/warn/skip | `local/stratum`, `network/stats`, `pool/stats` readable and valid; the age is shown and does not affect the result |
 | `P2P_CONNECTIONS` | p2pool | pass/warn/skip | connections > 0 |
-| `SIDECHAIN_SYNC` | p2pool | pass/warn/skip | локальная высота sidechain не отстаёт от максимальной высоты подключённых peers более чем на 100 блоков; после старта P2Pool минуты качает и проверяет PPLNS-окно, а до этого пишет `SYNCHRONIZED` на собственной пустой цепочке (стенд Zeonux 2026-09-16) |
-| `ZMQ_ACTIVITY` | p2pool | pass/warn/skip | оценка ZMQ age ≤ 600 s |
-| `XMRIG_API` | xmrig | pass/fail/skip | HTTP 200 и валидный JSON; 401/403 → fail `PERMISSION_DENIED`; недоступен → fail `SOURCE_UNAVAILABLE` |
-| `XMRIG_ID` | xmrig | pass/fail/skip | `id` совпадает с `expected_id` |
-| `XMRIG_SESSION` | xmrig | pass/warn/skip | uptime API согласован с `ExecMainStartTimestampMonotonic` (допуск 5 s); несопоставимо → warn `SOURCE_SESSION_UNKNOWN` |
+| `SIDECHAIN_SYNC` | p2pool | pass/warn/skip | the local sidechain height is not more than 100 blocks behind the maximum height of the connected peers; after start P2Pool downloads and verifies the PPLNS window for minutes and before that logs `SYNCHRONIZED` on its own empty chain (Zeonux stand 2026-09-16) |
+| `ZMQ_ACTIVITY` | p2pool | pass/warn/skip | estimated ZMQ age ≤ 600 s |
+| `XMRIG_API` | xmrig | pass/fail/skip | HTTP 200 and valid JSON; 401/403 → fail `PERMISSION_DENIED`; unreachable → fail `SOURCE_UNAVAILABLE` |
+| `XMRIG_ID` | xmrig | pass/fail/skip | `id` equals `expected_id` |
+| `XMRIG_SESSION` | xmrig | pass/warn/skip | the API uptime agrees with `ExecMainStartTimestampMonotonic` (5 s tolerance); incomparable → warn `SOURCE_SESSION_UNKNOWN` |
 | `XMRIG_CONNECTED` | xmrig | pass/warn/skip | `connection.uptime_ms > 0` |
 | `XMRIG_HASHRATE` | xmrig | pass/warn/skip | `hashrate_10s_hs > 0`; null → skip |
-| `XMRIG_HUGEPAGES` | xmrig | pass/warn/skip | `hugepages_percent = 100`; null → skip; remedy — административная настройка hugepages |
-| `NODE_RPC` | p2pool | pass/warn/skip | нода из `params_file` (`host`, `rpc-port`, `zmq-port`) отвечает на `get_info`, `synchronized=true`, ZMQ-порт открыт; `params_file` не задан → skip |
-| `TOKEN_FILE` | moneroid | pass/fail/skip | если задан: читаем, ≤ 4 KiB, без внутренних CR/LF; не задан → skip |
-| `JOURNAL_ACCESS` | moneroid | pass/warn | `journalctl --no-pager -n 1 -u UNIT` завершается без отказа в правах; отказ → warn (SEC-04) |
-| `CLOCK` | moneroid | pass/warn/skip | нет файлов API с mtime в будущем более 5 s |
+| `XMRIG_HUGEPAGES` | xmrig | pass/warn/skip | `hugepages_percent = 100`; null → skip; remedy — administrative hugepages setup |
+| `NODE_RPC` | p2pool | pass/warn/skip | the node from `params_file` (`host`, `rpc-port`, `zmq-port`) answers `get_info`, `synchronized=true`, the ZMQ port is open; `params_file` not set → skip |
+| `TOKEN_FILE` | moneroid | pass/fail/skip | if set: readable, ≤ 4 KiB, no inner CR/LF; not set → skip |
+| `JOURNAL_ACCESS` | moneroid | pass/warn | `journalctl --no-pager -n 1 -u UNIT` ends without a permission refusal; refusal → warn (SEC-04) |
+| `CLOCK` | moneroid | pass/warn/skip | no API files with an mtime more than 5 s in the future |
 
-Право на управляющие операции не проверяется: у systemd нет безопасной проверки без выполнения операции. `doctor` сообщает об этом одной строкой `skip` с кодом `CONTROL_ACCESS`.
+The right to control operations is not checked: systemd has no safe check without performing the operation. `doctor` says so in one `skip` line with the code `CONTROL_ACCESS`.
 
 ## 12. TUI
 
-UI-01. Один основной экран во всю высоту терминала в духе `htop`: заглавная полоса (версия, хост, время, health), состояния служб, XMRig hashrate 3 окон с полосой относительно максимума за 10 мин, submissions, hugepages, sparkline, доступные показатели P2Pool (в т.ч. полоса синхронизации sidechain относительно peers и оценка доли в пуле), строка выплат из журнала (число, сумма, последняя; перечитывается раз в минуту), список существенных проблем, возраст данных, полоса клавиш внизу. Панель использует тот же collector и операции, что CLI.
+UI-01. One main screen filling the terminal height in the spirit of `htop`: a title bar (version, host, time, health), service states, XMRig hashrate of 3 windows with a meter relative to the 10-minute maximum, submissions, hugepages, sparkline, the available P2Pool metrics (including a sidechain sync meter relative to the peers and a pool share estimate), a payouts line from the journal (count, total, last; re-read once a minute), the list of significant issues, data age, a key bar at the bottom. The dashboard uses the same collector and operations as the CLI.
 
-UI-02. Клавиши: `q`/`Ctrl-C` — выход из панели; `r` — обновить после завершения текущего сбора; `s` — меню служб; `l` — выбрать журнал; `p` — выплаты (§6.2); `?` — помощь; `Esc` — закрыть текущий диалог. Время в панели — локальная зона системы. Выход ни при каких обстоятельствах не вызывает stop.
+UI-02. Keys: `q`/`Ctrl-C` — leave the dashboard; `r` — refresh after the current collection ends; `s` — services menu; `l` — choose a journal; `p` — payouts (§6.2); `?` — help; `Esc` — close the current dialog. Time in the dashboard is the system's local zone. Leaving never calls stop under any circumstances.
 
-UI-03. В меню сначала выбирается target, затем действие. Stop/restart требует отдельного подтверждения с названием выбранных служб; по умолчанию выделено Cancel. В процессе операции виден progress, повторная отправка отключена, рендер и выход остаются отзывчивыми.
+UI-03. In the menu the target is chosen first, then the action. Stop/restart needs a separate confirmation naming the selected services; Cancel is highlighted by default. During an operation progress is visible, resubmission is disabled, rendering and exit stay responsive.
 
-UI-04. Для журналов TUI приостанавливает владение терминалом, запускает просмотр `journalctl`, затем восстанавливает экран и обновляет состояние. Ctrl-C в просмотре возвращает к панели. Отдельный встроенный log-viewer и анализ логов не нужны.
+UI-04. For journals the TUI releases the terminal, runs a `journalctl` view, then restores the screen and refreshes the state. Ctrl-C in the view returns to the dashboard. A separate built-in log viewer and log analysis are not needed.
 
-UI-05. Минимальная полноценная компоновка — 80×24. Ниже этого размера показывается компактное состояние служб и подсказка увеличить терминал; клавиши выхода работают. Resize не вызывает panic/неограниченное выделение памяти. При отсутствии TTY команда `tui` завершается понятной ошибкой аргументов/окружения без управляющих escape-последовательностей.
+UI-05. The minimal full layout is 80×24. Below that a compact service state and a hint to enlarge the terminal are shown; the exit keys work. Resize causes no panic/unbounded allocation. Without a TTY the `tui` command ends with a clear argument/environment error without control escape sequences.
 
-UI-06. Палитра — цвета Monero: оранжевый `#FF8000` (чуть светлее `#FF6600` логотипа, чтобы 256-цветные терминалы давали 208, а не красноватый 202; заголовки, полосы, нормальные состояния), белый (ключевые значения), красный только для degraded/failed/rejected/ошибок; та же палитра в текстовом `status` при выводе в терминал (`internal/ansi`, понижение до 256/16 цветов и отключение для конвейеров и `NO_COLOR` — `colorprofile`). Цвет не несёт единственный смысл: есть текстовые статусы, поддерживаются `NO_COLOR` и ASCII fallback. Управляющие символы из upstream-строк не исполняются терминалом. Интерфейс восстанавливает терминал после штатного выхода, ошибок и поддерживаемых сигналов.
+UI-06. The palette is the Monero colours: orange `#FF8000` (a touch lighter than the logo's `#FF6600` so that 256-colour terminals land on 208 rather than the reddish 202; headings, meters, normal states), white (key values), red only for degraded/failed/rejected/errors; the same palette in the text `status` when printing to a terminal (`internal/ansi`; downsampling to 256/16 colours and disabling for pipes and `NO_COLOR` — `colorprofile`). Colour never carries the only meaning: there are text states, `NO_COLOR` and an ASCII fallback are supported. Control characters from upstream strings are not executed by the terminal. The interface restores the terminal after a normal exit, errors and the supported signals, and erases the screen explicitly on exit so terminals without an alternate screen (Linux console) are left clean.
 
-## 13. Установка и документация
+## 13. Installation and documentation
 
-INSTALL-01. Поставка содержит проверенные примеры нативных конфигов и units. Установка описана пошагово, с явными административными командами создания пользователей/каталогов, назначения прав, установки файлов, `daemon-reload`, выдачи опциональных прав оператору и включения автозапуска; те же шаги выполняет `install.sh` (POSIX sh, идемпотентный, от пользователя с sudo): официальные релизы P2Pool/XMRig и бинарник Moneroid закреплённых версий с проверкой SHA256, подстановка кошелька и sidechain, автовыбор ноды, опционально автозапуск, hugepages/MSR и I2P (`--i2p`: i2pd, серверный туннель, параметры `socks5`/`i2p-address` P2Pool). Сам бинарник Moneroid ничего не скачивает и не устанавливает. Пример не должен запускать майнинг без подстановки пользовательского адреса и node.
+INSTALL-01. The distribution contains verified examples of the native configs and units. Installation is described step by step with explicit administrative commands for creating users/directories, setting permissions, installing files, `daemon-reload`, granting the optional operator rights and enabling autostart; the same steps are performed by `install.sh` (POSIX sh, idempotent, as a user with sudo): the official P2Pool/XMRig releases and the Moneroid binary of pinned versions with SHA256 verification (a cache of verified downloads in `/var/cache/moneroid`), wallet and sidechain substitution, automatic node choice, optionally autostart, hugepages/MSR and I2P (`--i2p`: i2pd, a server tunnel, the P2Pool `socks5`/`i2p-address` parameters). The Moneroid binary itself downloads and installs nothing. The example must not start mining without the user's address and node substituted.
 
-INSTALL-02. Нативный P2Pool params-file передаётся единственной парой аргументов `--params-file PATH`; дополнительные runtime-настройки содержатся в самом файле. XMRig получает `--config PATH`. Синтаксис, отключение цветного/дублирующего file logging, работа со stdin=null и read-only конфигом проверяются на эталонных версиях.
+INSTALL-02. The native P2Pool params-file is passed as the single argument pair `--params-file PATH`; additional runtime settings live in the file itself. XMRig gets `--config PATH`. Syntax, disabling coloured/duplicate file logging, stdin=null and a read-only config are verified on the reference versions.
 
-INSTALL-03. Примеры не скрывают настройки upstream donation и CPU; безопасные изменения интеграции перечислены явно. Для XMRig отключается автоматическая запись в root-owned конфиг, если upstream включает её по умолчанию. P2Pool main/mini/nano выбирается пользователем в нативном конфиге; default примера — mini, без утверждения об оптимальной доходности.
+INSTALL-03. The examples do not hide the upstream donation and CPU settings; the safe integration changes are listed explicitly. For XMRig automatic writing to the root-owned config is disabled if upstream enables it by default. P2Pool main/mini/nano is chosen by the user in the native config; the example's default is mini, without a claim of optimal profitability.
 
-INSTALL-04. README содержит: назначение, границы поддержки, prerequisites, установку, сценарий первого запуска, права и полный CLI. Отдельно поставляются `docs/troubleshooting.md` и `docs/updating.md`. Обновление по стабильным путям не требует изменения Moneroid; перенос executable требует изменения unit.
+INSTALL-04. The README contains: purpose, support boundaries, prerequisites, installation, the first-run scenario, permissions and the full CLI. `docs/troubleshooting.md` and `docs/updating.md` ship separately. Updating along stable paths does not require changing Moneroid; moving the executable requires changing the unit.
 
-INSTALL-05. Лицензия собственного проекта выбирается владельцем до публичного релиза. Изучение upstream-интерфейсов не включает копирование GPL-реализаций. Внешние исходники и бинарники не входят в поставку. Этот пункт не задаёт юридического заключения о лицензировании.
+INSTALL-05. The license of the own project is chosen by the owner before the public release (MIT). Studying the upstream interfaces does not include copying GPL implementations. External sources and binaries are not part of the distribution. This item is not a legal opinion on licensing.
 
-## 14. Приёмочные проверки
+## 14. Acceptance checks
 
-Обычные unit-тесты не вызывают реальный systemctl, не запускают майнеры и не используют интернет. JSON fixtures происходят из зафиксированного upstream-источника или явно помечены как синтетические повреждённые варианты. Реальные captures очищаются от токенов, адресов выплат и пользовательских данных.
+Regular unit tests do not call the real systemctl, do not start miners and do not use the internet. JSON fixtures come from the pinned upstream source or are explicitly marked as synthetic broken variants. Real captures are cleaned of tokens, payout addresses and user data.
 
-| ID | Сценарий | Критерий приёмки |
+| ID | Scenario | Acceptance criterion |
 |---|---|---|
-| A01 | Запуск, закрытие SSH, повторное подключение | Обе службы продолжают работать независимо от Moneroid |
-| A02 | Выход/сигнал/авария TUI | Не отправлено ни одной команды stop/kill службам |
-| A03 | XMRig active, HTTP отсутствует | Частичный status, service active, API unavailable, метрики неизвестны |
-| A04 | P2Pool остановлен, старые API-файлы остались | Старые значения не подтверждают текущее рабочее состояние |
-| A05 | Запись/замена/отсутствие/повреждение одного файла API | Bounded retry, независимые остальные источники, явная ошибка |
-| A06 | JSON-поле добавлено/удалено/null/неверного типа | Не падает весь snapshot; потеря затрагивает только соответствующую метрику |
-| A07 | Нулевой hashrate и отсутствующий hashrate | 0 и null различимы в CLI/JSON/графике |
-| A08 | Новый InvocationID или сброс uptime | Старый кэш и график не смешиваются с новой сессией |
-| A09 | `start/stop/restart all` и одиночные targets | Проверен порядок systemd, одиночная операция не меняет второй штатный unit |
-| A10 | Timeout/Ctrl-C/внешняя встречная команда при control | Нет отката; показана неопределённость или частичный результат |
-| A11 | Нет полных прав на control/journal/API | Read-only функции продолжают работать; отказ не скрыт |
-| A12 | Unit missing/failed/masked/start-limit-hit | Состояние и причина доступны без разбора human-readable status |
-| A13 | `status --json`, включая полный отказ источников | Один валидный JSON, stdout без лишнего текста, стабильная схема |
-| A14 | `status --check` при ok/degraded/stopped/unknown | Коды 0/1 соответствуют договорённости |
-| A15 | Монохром, 80×24, узкий терминал, resize, non-TTY | Читаемость, отсутствие panic, корректный выход |
-| A16 | Медленный/зависший HTTP, oversized body, redirect | Deadline/лимиты соблюдены, нет обращения к внешнему адресу |
-| A17 | Несколько тиков при медленном collection | Нет нарастания очереди запросов/goroutines |
-| A18 | Secret/token/URL userinfo/escape в ответе | Нет утечки через JSON/ошибки и исполнения terminal control |
-| A19 | Запуск с stdin=null, SIGTERM, restart-limit | P2Pool/XMRig работают под штатными units; остановка ограничена временем |
-| A20 | Независимое обновление upstream | Те же native interfaces и wrapper config продолжают работать |
-| A21 | Путь executable изменён | Меняется unit, не wrapper schema; doctor выявляет ошибку запуска |
-| A22 | Оба сервиса inactive/disabled | `stopped` отличается от неисправности; enabled не смешан с active |
-| A23 | P2Pool shares=0 / старые rejects XMRig | Нет ложного аварийного сигнала или утверждения об отсутствии выплат |
-| A24 | Read-only конфиги и группа наблюдателей | Майнеры запускаются; оператор читает API, но не изменяет конфиги |
-| A25 | Изменение wall clock, файлы с будущим mtime | Возраст не становится молча отрицательным/вечно свежим; видна причина |
-| A26 | Stop/restart P2Pool с временным Data API | Старый RuntimeDirectory удалён, новый имеет правильные owner/group/mode |
-| A27 | Чужой XMRig API ID или несовместимый uptime | SOURCE_ID_MISMATCH/SOURCE_SESSION_UNKNOWN, health не ok |
-| A28 | Drop-in меняет systemd зависимости | Doctor проверяет effective properties и сообщает отличие |
-| A29 | `node list` при недоступной/несинхронизированной/медленной ноде | Таймауты соблюдены, ранжирование исключает непригодные, нет записи |
-| A30 | `node select` на конфиге с комментариями, без ключей, без прав, `--dry-run` | Меняются только три ключа, остальное байт-в-байт; отказ в правах — код 3; dry-run не пишет |
+| A01 | Start, close SSH, reconnect | Both services keep running independently of Moneroid |
+| A02 | TUI exit/signal/crash | Not a single stop/kill command sent to the services |
+| A03 | XMRig active, HTTP absent | Partial status, service active, API unavailable, metrics unknown |
+| A04 | P2Pool stopped, old API files remain | Old values do not confirm the current working state |
+| A05 | Write/replace/absence/corruption of one API file | Bounded retry, the other sources independent, an explicit error |
+| A06 | A JSON field added/removed/null/wrong type | The whole snapshot does not fail; the loss affects only that metric |
+| A07 | Zero hashrate and missing hashrate | 0 and null distinguishable in CLI/JSON/chart |
+| A08 | New InvocationID or uptime reset | The old cache and chart are not mixed with the new session |
+| A09 | `start/stop/restart all` and single targets | systemd order verified, a single operation does not touch the other stock unit |
+| A10 | Timeout/Ctrl-C/an external counter-command during control | No rollback; uncertainty or a partial result shown |
+| A11 | No full rights for control/journal/API | Read-only functions keep working; the refusal is not hidden |
+| A12 | Unit missing/failed/masked/start-limit-hit | State and reason available without parsing human-readable status |
+| A13 | `status --json`, including all sources failing | One valid JSON, stdout without extra text, a stable schema |
+| A14 | `status --check` with ok/degraded/stopped/unknown | Codes 0/1 as agreed |
+| A15 | Monochrome, 80×24, narrow terminal, resize, non-TTY | Readability, no panic, correct exit |
+| A16 | Slow/hung HTTP, oversized body, redirect | Deadlines/limits respected, no external address contacted |
+| A17 | Several ticks during a slow collection | No growing queue of requests/goroutines |
+| A18 | Secret/token/URL userinfo/escape in a reply | No leak through JSON/errors and no terminal control executed |
+| A19 | Start with stdin=null, SIGTERM, restart limit | P2Pool/XMRig run under the stock units; stop is time-bounded |
+| A20 | Independent upstream update | The same native interfaces and wrapper config keep working |
+| A21 | Executable path changed | The unit changes, not the wrapper schema; doctor reveals the start error |
+| A22 | Both services inactive/disabled | `stopped` differs from a fault; enabled not mixed with active |
+| A23 | P2Pool shares=0 / old XMRig rejects | No false alarm or claim of no payouts |
+| A24 | Read-only configs and the operator group | The miners start; the operator reads the API but cannot change the configs |
+| A25 | Wall clock change, files with a future mtime | Age does not silently go negative/forever fresh; the reason is visible |
+| A26 | Stop/restart of P2Pool with the temporary Data API | The old RuntimeDirectory is removed, the new one has the right owner/group/mode |
+| A27 | A foreign XMRig API ID or an incompatible uptime | SOURCE_ID_MISMATCH/SOURCE_SESSION_UNKNOWN, health not ok |
+| A28 | A drop-in changes systemd dependencies | Doctor checks the effective properties and reports the difference |
+| A29 | `node list` with an unreachable/unsynced/slow node | Timeouts respected, ranking excludes the unusable, nothing written |
+| A30 | `node select` on a config with comments, without the keys, without rights, `--dry-run` | Only three keys change, the rest byte for byte; permission refusal — code 3; dry-run does not write |
 
-Интеграционная приёмка проводится на отдельном разрешённом хосте/VM с реальными службами и предоставленной пользователем нодой/адресом. CPU-майнинг и изменение системы не запускаются скрыто в ходе подготовки ТЗ. Начальная матрица: актуальная система — Debian 13 (systemd 257); вторая система с systemd 249 — по решению владельца после первого прохода. Upstream-версии, ОС, команды и результаты записываются в отчёт.
+Integration acceptance runs on a separate authorized host/VM with real services and a node/address provided by the user. CPU mining and system changes are never started covertly while preparing the spec. Initial matrix: the current system Debian 13 (systemd 257); a second system with systemd 249 at the owner's discretion after the first pass. Upstream versions, OS, commands and results are recorded in the report.
 
-Нефункциональные критерии: `status` завершает bounded collection за 3 секунды плюс малые накладные расходы; UI не блокируется на сетевом чтении; число goroutines и объём кольцевого буфера ограничены; за 30 минут наблюдения нет монотонного роста памяти из-за накопления запросов/точек. Численные обещания CPU/RSS не назначаются без измерения и фиксируются после прототипа.
+Non-functional criteria: `status` finishes the bounded collection within 3 seconds plus small overhead; the UI does not block on network reads; the number of goroutines and the ring buffer size are bounded; in 30 minutes of observation there is no monotonic memory growth from accumulating requests/points. Numeric CPU/RSS promises are not made without measurement and are fixed after the prototype.
 
-## 15. Порядок реализации
+## 15. Implementation order
 
-Это последовательность проверяемых результатов, а не разрешение начать реализацию или развернуть службы. Детализация по пакетам, файлам и командам проверки — в [плане реализации](plan.md).
+This is a sequence of verifiable results, not permission to start implementing or deploy services. The breakdown by packages, files and verification commands is in the [implementation plan](plan.md).
 
-0. **Репозиторий.** Git, module path, лицензия, `go.mod` с зафиксированными версиями, каркас каталогов, Makefile. Критерий: пустой каркас собирается и проходит `vet/fmt/test`; решения владельца D1–D6 из плана приняты.
-1. **Контракты и стенд.** Подтвердить API и service-профиль на эталонных версиях, получить реальные очищенные fixtures, зафиксировать схемы snapshot/doctor. Критерии: A05–A08, A19, A24; ошибки контракта исправляются до UI.
-2. **Read-only CLI.** Собственная конфигурация, адаптеры, snapshot, health, `status/--json/--check`, `version`, `config path`. Критерии: A03–A08, A12–A14, A16–A18, A22–A23, A25.
-3. **Эксплуатация.** systemd control, проверка результата, logs, doctor, `node list/select`, штатные units и руководство установки. Критерии: A01, A09–A12, A19, A21, A24, A29–A30.
-4. **TUI.** Представление того же snapshot, ограниченная история, меню control, переход в journalctl, terminal cleanup. Критерии: A02, A07–A11, A15, A17–A18.
-5. **Релизная проверка.** Полный SSH-сценарий, отключения источников, независимая замена upstream, compatibility fixtures, документация. Критерии: A01–A28, особенно A20 и A26–A28.
+0. **Repository.** Git, module path, license, `go.mod` with pinned versions, directory skeleton, Makefile. Criterion: the empty skeleton builds and passes `vet/fmt/test`; owner decisions D1–D6 from the plan taken.
+1. **Contracts and stand.** Confirm the APIs and the service profile on the reference versions, obtain real sanitized fixtures, fix the snapshot/doctor schemas. Criteria: A05–A08, A19, A24; contract errors are fixed before the UI.
+2. **Read-only CLI.** Own configuration, adapters, snapshot, health, `status/--json/--check`, `version`, `config path`. Criteria: A03–A08, A12–A14, A16–A18, A22–A23, A25.
+3. **Operations.** systemd control, result verification, logs, doctor, `node list/select`, the stock units and the installation guide. Criteria: A01, A09–A12, A19, A21, A24, A29–A30.
+4. **TUI.** Presenting the same snapshot, bounded history, control menu, switching to journalctl, terminal cleanup. Criteria: A02, A07–A11, A15, A17–A18.
+5. **Release verification.** The full SSH scenario, source outages, independent upstream replacement, compatibility fixtures, documentation. Criteria: A01–A28, especially A20 and A26–A28.
 
-Предлагаемая структура реализации: `cmd/moneroid`, `internal/config`, `internal/status` (модель, collector, health), `internal/systemd`, `internal/xmrig`, `internal/p2pool`, `internal/node`, `internal/doctor`, `internal/tui`, `examples`, `systemd`, `testdata`, `docs`. Дополнительные пакеты вводятся только при появлении самостоятельной ответственности.
+Proposed implementation structure: `cmd/moneroid`, `internal/config`, `internal/status` (model, collector, health), `internal/systemd`, `internal/xmrig`, `internal/p2pool`, `internal/node`, `internal/doctor`, `internal/payouts`, `internal/tui`, `internal/ansi`, `examples`, `systemd`, `testdata`, `docs`. Additional packages appear only with a responsibility of their own.
 
-Детальный план задач с файлами, интерфейсами и тестовыми командами — [план реализации](plan.md). Реализация начинается с CLI и интеграционных контрактов; оформление панели не является первым этапом.
+The detailed task plan with files, interfaces and test commands is the [implementation plan](plan.md). Implementation starts with the CLI and the integration contracts; dashboard styling is not the first stage.
 
-## 16. Что считается готовностью ТЗ и продукта
+## 16. What counts as readiness of the spec and the product
 
-ТЗ готово к передаче в реализацию после согласования границ v1 и устранения противоречий с проверенными upstream-контрактами. Продукт готов только после реализации требований и отчёта по приёмочным проверкам; наличие документов или успешная компиляция не заменяют этот отчёт.
+The spec is ready for implementation after the v1 boundaries are agreed and contradictions with the verified upstream contracts are removed. The product is ready only after the requirements are implemented and the acceptance report exists; documents or a successful compilation do not replace that report.
 
-На момент составления исследованы handoff и публичные документы/исходники. Майнеры не запускались, настоящие runtime fixtures не получены, service-профиль на майнерах не проверен. Первый этап реализации закрывает эту техническую неопределённость; предположительные показатели не должны попасть в UI как подтверждённые.
+At the time of writing the handoff and the public documents/sources had been studied. The miners had not been run, real runtime fixtures had not been obtained, the service profile had not been verified on the miners. The first implementation stage closed that technical uncertainty; assumed values must never reach the UI as confirmed.

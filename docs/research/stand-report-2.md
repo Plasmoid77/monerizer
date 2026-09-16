@@ -1,31 +1,31 @@
-# Отчёт стенда №2 — пара под systemd
+# Stand report 2 — the pair under systemd
 
-Дата: 2026-09-11. Хост тот же (Arch, systemd 261). Установка — `stand-install.sh` (root), откат — `stand-rollback.sh`. Отличие от ТЗ 0.3: одна группа `moneroid` для чтения API, чтения конфигов и (в будущем) polkit-управления; причина — console cookie в `local/console` (отчёт №1, §6).
+Date: 2026-09-11. Same host (Arch, systemd 261). Installed with the stand script (root), rolled back with its counterpart (both superseded by `install.sh` / `install.sh --uninstall --purge` since v0.4.0). Difference from spec 0.3: one group `moneroid` for reading the API, reading the configs and (later) polkit control; the reason is the console cookie in `local/console` (report 1, §6).
 
-## 1. Что создано в системе
+## 1. What was created on the system
 
-Группа `moneroid`; пользователи `moneroid-p2pool`, `moneroid-xmrig` (system, nologin, primary group `moneroid`); `/usr/local/bin/{p2pool,xmrig}` root 0755; `/etc/moneroid/{p2pool.conf,xmrig.json}` root:moneroid 0640; units `systemd/*.service`; `plasmoid` добавлен в `moneroid`. Каталоги `/var/lib/moneroid/{p2pool,xmrig}` (0700, StateDirectory) и `/run/moneroid-p2pool-api` (RuntimeDirectory) создаёт systemd. Автозапуск не включён. Дополнительно для ночной работы: `sleep/suspend/hibernate/hybrid-sleep.target` masked, drop-in logind `HandleLidSwitch*=ignore`.
+Group `moneroid`; users `moneroid-p2pool`, `moneroid-xmrig` (system, nologin, primary group `moneroid`); `/usr/local/bin/{p2pool,xmrig}` root 0755; `/etc/moneroid/{p2pool.conf,xmrig.json}` root:moneroid 0640; units `systemd/*.service`; `plasmoid` added to `moneroid`. The directories `/var/lib/moneroid/{p2pool,xmrig}` (0700, StateDirectory) and `/run/moneroid-p2pool-api` (RuntimeDirectory) are created by systemd. Autostart not enabled. Additionally for the overnight run: `sleep/suspend/hibernate/hybrid-sleep.target` masked, a logind drop-in `HandleLidSwitch*=ignore`.
 
-## 2. Результаты
+## 2. Results
 
-| Проверка | Результат |
+| Check | Result |
 |---|---|
-| Unit-профиль SYS-02/SEC-08 (`ProtectSystem=strict`, `ProtectHome`, `NoNewPrivileges`, `PrivateTmp`) с RandomX/JIT | Оба процесса работают; XMRig `+JIT`, dataset 2336 MB выделен |
-| `RuntimeDirectory` без setgid, `Group=moneroid` + `UMask=0027` | Каталоги 0750, файлы 0640, owner `moneroid-p2pool:moneroid` — setgid не нужен, `RuntimeDirectoryMode=0750` достаточно |
-| Чтение API членом группы / посторонним | Член группы читает; посторонний — `Permission denied` на каталоге |
-| `RuntimeDirectoryPreserve=no` | После `stop` каталог удалён, после `start` создан заново пустым (A26) |
-| `systemctl show` всех свойств SYS-06 без прав | Доступны, включая `InvocationID`, `ExecMainStartTimestampMonotonic`, `RuntimeDirectory*`. `Requires=` содержит неявные `system.slice sysinit.target -.mount` — doctor ищет только имя парного unit |
-| Несуществующий unit | `LoadState=not-found`, `ActiveState=inactive`, exit 0 (A12) |
-| `stop -- p2pool xmrig` одной командой | 0,26 s; XMRig остановлен раньше P2Pool |
-| `start -- p2pool xmrig` одной командой | 0,11 s; «Started P2Pool» раньше «Starting XMRig» (A09) |
-| Журнал XMRig | Через `StandardOutput=journal` строки приходят (`_TRANSPORT=stdout`); `"syslog": true` давал дубли — убран из примера |
-| XMRig под непривилегированным пользователем | `FAILED TO APPLY MSR MOD, HASHRATE WILL BE LOW`, huge pages 0/1168 — ожидаемое следствие SEC-08; ~1,4 kH/s на 4 потоках |
-| Чтение журнала пользователем | `plasmoid` в `wheel` — читает; отдельная проверка без wheel не делалась |
+| Unit profile SYS-02/SEC-08 (`ProtectSystem=strict`, `ProtectHome`, `NoNewPrivileges`, `PrivateTmp`) with RandomX/JIT | Both processes run; XMRig `+JIT`, 2336 MB dataset allocated |
+| `RuntimeDirectory` without setgid, `Group=moneroid` + `UMask=0027` | Directories 0750, files 0640, owner `moneroid-p2pool:moneroid` — no setgid needed, `RuntimeDirectoryMode=0750` suffices |
+| Reading the API as a group member / an outsider | The member reads; the outsider gets `Permission denied` on the directory |
+| `RuntimeDirectoryPreserve=no` | After `stop` the directory is gone, after `start` it is recreated empty (A26) |
+| `systemctl show` of all SYS-06 properties without privileges | Available, including `InvocationID`, `ExecMainStartTimestampMonotonic`, `RuntimeDirectory*`. `Requires=` contains the implicit `system.slice sysinit.target -.mount` — doctor looks only for the paired unit's name |
+| A non-existent unit | `LoadState=not-found`, `ActiveState=inactive`, exit 0 (A12) |
+| `stop -- p2pool xmrig` in one command | 0.26 s; XMRig stopped before P2Pool |
+| `start -- p2pool xmrig` in one command | 0.11 s; "Started P2Pool" before "Starting XMRig" (A09) |
+| XMRig journal | Via `StandardOutput=journal` the lines arrive (`_TRANSPORT=stdout`); `"syslog": true` produced duplicates — removed from the example |
+| XMRig as an unprivileged user | `FAILED TO APPLY MSR MOD, HASHRATE WILL BE LOW`, huge pages 0/1168 — the expected consequence of SEC-08; ~1.4 kH/s on 4 threads |
+| Journal reading as a user | `plasmoid` is in `wheel` — reads; a separate check without wheel was not done |
 
-## 3. Инцидент
+## 3. Incident
 
-`systemctl restart systemd-logind` для применения drop-in обрушил KDE Wayland-сессию (kwin потерял доступ к DRM), потребовалась жёсткая перезагрузка. Майнинг не причастен (XMRig ещё не стартовал, kernel-сообщений нет). Правило: logind на живой графической сессии не перезапускать; drop-in применяется при следующей загрузке.
+`systemctl restart systemd-logind` to apply the drop-in crashed the KDE Wayland session (kwin lost DRM access); a hard reboot was needed. Mining was not involved (XMRig had not started yet, no kernel messages). Rule: never restart logind on a live graphical session; the drop-in applies at the next boot.
 
-## 4. Не проверено
+## 4. Not verified
 
-`Restart=on-failure`/start-limit на неверной ноде (A12/A21), доступ к журналу без `wheel`, polkit-правило (SEC-03), второй хост Debian 13.
+`Restart=on-failure`/start-limit on a wrong node (A12/A21), journal access without `wheel`, the polkit rule (SEC-03), a second Debian 13 host.

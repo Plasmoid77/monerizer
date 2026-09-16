@@ -1,4 +1,4 @@
-// Package systemd reads unit state through systemctl (ТЗ SYS-06, SYS-07).
+// Package systemd reads unit state through systemctl (spec SYS-06, SYS-07).
 package systemd
 
 import (

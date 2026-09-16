@@ -1,75 +1,75 @@
 # Moneroid
 
-*Minimal CLI/TUI to run one P2Pool + XMRig pair under systemd on Linux: status, health, doctor, logs, start/stop, node probing. Single static binary, upstream programs stay untouched. Docs are in Russian; see `docs/architecture.md` for a map of the code.*
+*Minimal CLI/TUI to run one P2Pool + XMRig pair under systemd on Linux: status, health, doctor, logs, start/stop, payouts, node probing. One static binary; the upstream programs stay untouched.*
 
-Маленький CLI/TUI для эксплуатации одной пары **P2Pool + XMRig** под systemd на Linux. Один бинарник без зависимостей; майнеры остаются штатными upstream-программами со своими нативными конфигами и обновляются независимо. Moneroid ничего не майнит, не хранит и не переписывает — только `systemctl`, `journalctl`, HTTP API XMRig и файлы Data API P2Pool.
+A small CLI/TUI for operating one **P2Pool + XMRig** pair under systemd on Linux. A single binary without host dependencies; the miners remain the stock upstream programs with their native configs and are updated independently. Moneroid mines nothing, stores nothing and rewrites nothing — it only uses `systemctl`, `journalctl`, the XMRig HTTP API and the P2Pool Data API files.
 
 ```text
-XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
+XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero node
    ▲                  ▲
-   └── moneroid ─────┘   (systemd · GET /2/summary · чтение /run/…-api)
+   └── moneroid ─────┘   (systemd · GET /2/summary · reads /run/…-api)
 ```
 
-Состояние: v1 реализована и проверена на Arch Linux (systemd 261) и Debian 13 (systemd 257) с P2Pool 4.18 и XMRig 6.26.0 — [отчёт приёмки](docs/research/acceptance-report-v1.md).
+Status: v1 is implemented and verified on Arch Linux (systemd 261), Debian 13 (systemd 257) and Ubuntu 22.04 (systemd 249) with P2Pool 4.18 and XMRig 6.26.0 — [acceptance report](docs/research/acceptance-report-v1.md).
 
-## Что умеет
+## What it does
 
-| Команда | Что делает |
+| Command | What it does |
 |---|---|
-| `moneroid status [--json] [--check]` | Состояние служб, показатели XMRig/P2Pool, свежесть источников, health и причины. `--check` → код 1, если health не `ok` |
-| `moneroid tui` | Живая панель во весь экран в духе `htop`: hashrate с полосами и sparkline, P2Pool, выплаты, проблемы; меню start/stop/restart с подтверждением, просмотр журнала, экран выплат (`p`) |
-| `moneroid start\|stop\|restart [all\|p2pool\|xmrig]` | Управление через systemd; после операции печатает фактическое состояние |
-| `moneroid logs [--follow] [--lines N] [target]` | `journalctl` по точным unit-именам |
-| `moneroid doctor [--json]` | 31 проверка: units, зависимости, права, API, свежесть, нода |
-| `moneroid payouts [--json] [--since TIME]` | Выплаты из журнала P2Pool: время, сумма, блок, итог; адрес кошелька не выводится |
-| `moneroid node list` / `node select [--dry-run]` | Проба нод из `nodes.txt` (RPC latency, sync, ZMQ-порт); `select` переписывает `host/rpc-port/zmq-port` в `p2pool.conf` |
-| `moneroid config path`, `version` | Служебные |
+| `moneroid status [--json] [--check]` | Service states, XMRig/P2Pool metrics, source freshness, health with reasons. `--check` → exit 1 unless health is `ok` |
+| `moneroid tui` | Live full-screen dashboard in the spirit of `htop`: hashrate with meters and a sparkline, P2Pool, payouts, issues; start/stop/restart menu with confirmation, journal view, payouts screen (`p`) |
+| `moneroid start\|stop\|restart [all\|p2pool\|xmrig]` | Control through systemd; prints the actual state afterwards |
+| `moneroid logs [--follow] [--lines N] [target]` | `journalctl` by exact unit names |
+| `moneroid doctor [--json]` | 31 checks: units, dependencies, permissions, APIs, freshness, node |
+| `moneroid payouts [--json] [--since TIME]` | Payouts from the P2Pool journal: time, amount, block, total; the wallet address is never printed |
+| `moneroid node list` / `node select [--dry-run]` | Probes the nodes from `nodes.txt` (RPC latency, sync, ZMQ port); `select` rewrites `host/rpc-port/zmq-port` in `p2pool.conf` |
+| `moneroid config path`, `version` | Utilities |
 
-`status` и `tui` подсвечены цветами Monero (оранжевый/белый; красный — только проблемы); в конвейере или при `NO_COLOR=1` вывод остаётся чистым текстом, смысл всегда есть в тексте.
+`status` and `tui` use the Monero colours (orange/white; red only for problems); in a pipe or with `NO_COLOR=1` the output is plain text, and the meaning is always in the text.
 
-Границы (намеренно): нет установщика бинарников, автообновлений, базы данных, web-UI, управления `monerod`, нескольких стеков, настройки ядра/MSR/hugepages. Полный перечень — в [ТЗ](docs/spec.md).
+Boundaries (deliberate): no binary installer inside the tool, no auto-updates, no database, no web UI, no `monerod` management, no multiple stacks, no kernel/MSR/hugepages tuning inside the tool. The full list is in the [spec](docs/spec.md).
 
-## Требования
+## Requirements
 
-- Linux x86_64, systemd ≥ 249 (проверено на 261), polkit — только для опционального управления без sudo.
-- Установленные бинарники [P2Pool](https://github.com/SChernykh/p2pool/releases) и [XMRig](https://github.com/xmrig/xmrig/releases) (официальные релизы, проверка checksum/подписи).
-- Monero-нода с открытыми RPC и ZMQ (`--zmq-pub`): своя или удалённая. Удалённая нода видит IP хоста и адрес выплат.
-- Основной адрес кошелька Monero (начинается с `4`).
+- Linux x86_64, systemd ≥ 249 (verified up to 261); polkit only for the optional password-less control.
+- Installed [P2Pool](https://github.com/SChernykh/p2pool/releases) and [XMRig](https://github.com/xmrig/xmrig/releases) binaries (official releases, checksum/signature verified).
+- A Monero node with RPC and ZMQ (`--zmq-pub`) open: your own or a remote one. A remote node sees the host's IP and the payout address.
+- A primary Monero wallet address (starts with `4`).
 
-## Установка
+## Installation
 
-Одной командой (Linux x86_64 с systemd; Debian 13, Ubuntu 22.04 и Arch проверены), от пользователя с sudo:
+One command (Linux x86_64 with systemd; Debian 13, Ubuntu 22.04 and Arch verified), as a user with sudo:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/Plasmoid77/moneroid/main/install.sh
-sh install.sh --wallet 4ВАШ_ОСНОВНОЙ_АДРЕС          # + --enable (автозапуск), --hugepages, --node HOST:RPC:ZMQ, --sidechain mini|nano|main
+sh install.sh --wallet 4YOUR_PRIMARY_ADDRESS          # + --enable (autostart), --hugepages, --node HOST:RPC:ZMQ, --sidechain mini|nano|main
 ```
 
-`--i2p` (вместе с `--node LAN_IP:RPC:ZMQ` или нодой `.b32.i2p`) ставит `i2pd`, создаёт серверный туннель и переводит p2p-трафик P2Pool в I2P — см. раздел в `docs/install.md`.
+`--i2p` (together with `--node LAN_IP:RPC:ZMQ` or a `.b32.i2p` node) installs `i2pd`, creates a server tunnel and moves P2Pool's p2p traffic into I2P — see the section in `docs/install.md`.
 
-Скрипт скачивает официальные релизы P2Pool и XMRig и бинарник Moneroid, сверяет их с SHA256, закреплёнными в скрипте (подпись P2Pool проверена при закреплении), создаёт группу и двух системных пользователей, кладёт конфиги и unit-файлы, выбирает Monero-ноду пробой из `nodes.txt`, запускает службы и показывает `doctor`. Повторный запуск ничего не перезаписывает в `/etc/moneroid`. Удаление: `sh install.sh --uninstall [--purge]`.
+The script downloads the official P2Pool and XMRig releases and the Moneroid binary, checks them against the SHA256 values pinned in the script (the P2Pool signature was verified when pinning), creates the group and two system users, installs the configs and unit files, picks a Monero node by probing `nodes.txt`, starts the services and shows `doctor`. Running it again overwrites nothing in `/etc/moneroid`. Removal: `sh install.sh --uninstall [--purge]`.
 
-Вручную, по шагам (или из исходников: `make build`, Go 1.27) — [docs/install.md](docs/install.md).
+Manually, step by step (or from source: `make build`, Go 1.27) — [docs/install.md](docs/install.md).
 
-## Права
+## Permissions
 
-- `status`, `tui`, `doctor`, `logs` — обычный пользователь из группы `moneroid` (чтение Data API и конфигов) и `systemd-journal`/`wheel` для журнала.
-- `start/stop/restart` — через `sudo` либо через опциональное polkit-правило `examples/polkit/50-moneroid.rules` (только два unit, только start/stop/restart, только группа `moneroid`).
-- `node select` пишет в `p2pool.conf` → `sudo`.
-- Каталог Data API содержит `local/console` с cookie TCP-консоли P2Pool: право чтения каталога равнозначно управлению P2Pool, поэтому группа одна.
+- `status`, `tui`, `doctor`, `logs` — a regular user in group `moneroid` (reads the Data API and configs) plus `systemd-journal`/`wheel` for the journal.
+- `start/stop/restart` — through `sudo` or the optional polkit rule `examples/polkit/50-moneroid.rules` (two units only, start/stop/restart only, group `moneroid` only).
+- `node select` writes `p2pool.conf` → `sudo`.
+- The Data API directory contains `local/console` with the cookie of the P2Pool TCP console: read access to the directory equals control of P2Pool, hence a single group.
 
-## Как это устроено и как сопровождать
+## How it works and how to maintain it
 
-- [docs/architecture.md](docs/architecture.md) — поток данных, пакеты, инварианты, health-правила.
-- [AGENTS.md](AGENTS.md) — правила изменений для людей и ИИ-агентов, известные ловушки.
-- [CHANGELOG.md](CHANGELOG.md) · релизы — на GitHub, `sha256sum -c SHA256SUMS`.
-- `make check` — gofmt, vet, тесты (без сети и systemctl), статическая сборка; то же делает CI.
+- [docs/architecture.md](docs/architecture.md) — data flow, packages, invariants, health rules.
+- [AGENTS.md](AGENTS.md) — change rules for people and AI agents, known traps.
+- [CHANGELOG.md](CHANGELOG.md) · releases on GitHub, `sha256sum -c SHA256SUMS`.
+- `make check` — gofmt, vet, tests (no network, no systemctl), static build; CI does the same.
 
-## Документы
+## Documents
 
-- [Установка](docs/install.md) · [Диагностика](docs/troubleshooting.md) · [Обновление upstream](docs/updating.md)
-- [ТЗ v1](docs/spec.md) · [План реализации и история решений](docs/plan.md)
-- [Контракты источников](docs/research/upstream-contracts.md) · [Отчёт стенда №1](docs/research/stand-report-1.md) · [№2](docs/research/stand-report-2.md) · [Приёмка v1](docs/research/acceptance-report-v1.md)
-- [Исходный handoff](docs/history/handoff-v2.md) — первоначальное исследование; решения ТЗ имеют приоритет.
+- [Installation](docs/install.md) · [Troubleshooting](docs/troubleshooting.md) · [Updating upstream](docs/updating.md)
+- [Spec v1](docs/spec.md) · [Implementation plan and decision history](docs/plan.md)
+- [Source contracts](docs/research/upstream-contracts.md) · [Stand report 1](docs/research/stand-report-1.md) · [2](docs/research/stand-report-2.md) · [Acceptance v1](docs/research/acceptance-report-v1.md)
+- [Original handoff](docs/history/handoff-v2.md) — the initial research; the spec's decisions take precedence.
 
-Лицензия — MIT. XMRig и P2Pool не входят в поставку и распространяются по своим лицензиям.
+License — MIT. XMRig and P2Pool are not part of the distribution and come under their own licenses.

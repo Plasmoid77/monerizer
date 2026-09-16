@@ -1,4 +1,4 @@
-// Package status defines the MiningSnapshot (ТЗ §10), collects it (§9) and
+// Package status defines the MiningSnapshot (spec §10), collects it (§9) and
 // evaluates health (§11).
 package status
 
@@ -129,7 +129,7 @@ type Health struct {
 	Issues []Issue `json:"issues"`
 }
 
-// Issue is one explainable reason with a stable code (ТЗ §10, contracts §7).
+// Issue is one explainable reason with a stable code (spec §10, contracts §7).
 type Issue struct {
 	Code      string `json:"code"`
 	Severity  string `json:"severity"` // info|warning|error

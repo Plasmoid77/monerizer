@@ -1,4 +1,4 @@
-// Command moneroid operates one P2Pool + XMRig pair under systemd (ТЗ §6).
+// Command moneroid operates one P2Pool + XMRig pair under systemd (spec §6).
 package main
 
 import (

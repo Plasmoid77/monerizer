@@ -6,13 +6,13 @@ xmrig = "moneroid-xmrig.service"
 
 [p2pool]
 data_api_dir = "/run/moneroid-p2pool-api"
-# params_file = "/etc/moneroid/p2pool.conf"   # нужен командам node и проверке NODE_RPC
-# nodes_file = "/etc/moneroid/nodes.txt"      # нужен командам node
+# params_file = "/etc/moneroid/p2pool.conf"   # needed by the node commands and the NODE_RPC check
+# nodes_file = "/etc/moneroid/nodes.txt"      # needed by the node commands
 
 [xmrig]
 api_url = "http://127.0.0.1:18088"
 expected_id = "moneroid-xmrig"
-# token_file = "/etc/moneroid/xmrig-api.token"   # только если http.access-token задан в xmrig.json
+# token_file = "/etc/moneroid/xmrig-api.token"   # only if http.access-token is set in xmrig.json
 
 [ui]
 refresh_ms = 1000

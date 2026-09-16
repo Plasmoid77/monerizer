@@ -1,4 +1,4 @@
-// Package config loads and validates moneroid.toml (ТЗ §5.3, CFG-01..08).
+// Package config loads and validates moneroid.toml (spec §5.3, CFG-01..08).
 package config
 
 import (

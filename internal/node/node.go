@@ -1,5 +1,5 @@
 // Package node probes candidate Monero nodes and rewrites the node keys of the
-// P2Pool params-file (ТЗ §6.1, NODE-01..05).
+// P2Pool params-file (spec §6.1, NODE-01..05).
 package node
 
 import (

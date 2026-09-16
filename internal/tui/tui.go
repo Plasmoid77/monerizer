@@ -1,4 +1,4 @@
-// Package tui is the interactive panel (ТЗ §12). It renders the same Snapshot
+// Package tui is the interactive panel (spec §12). It renders the same Snapshot
 // the CLI prints and never owns the miners' lifetime.
 package tui
 

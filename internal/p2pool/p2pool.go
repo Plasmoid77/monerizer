@@ -1,5 +1,5 @@
 // Package p2pool reads the fixed set of P2Pool Data API files (contracts §3–5,
-// ТЗ DATA-02..04). It never parses wallet, peers or workers.
+// spec DATA-02..04). It never parses wallet, peers or workers.
 package p2pool
 
 import (

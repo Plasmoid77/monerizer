@@ -1,14 +1,14 @@
-# Схема `moneroid payouts --json`, schema_version 1
+# Schema of `moneroid payouts --json`, schema_version 1
 
-| Поле | Тип |
+| Field | Type |
 |---|---|
 | `schema_version` | integer (1) |
-| `unit` | string — unit P2Pool |
+| `unit` | string — the P2Pool unit |
 | `payouts[]` | array |
-| `payouts[].at` | string RFC3339 UTC (нулевое время, если метка не разобрана) |
+| `payouts[].at` | string RFC3339 UTC (zero time if the timestamp could not be parsed) |
 | `payouts[].atomic_units` | integer — piconero |
-| `payouts[].xmr` | string — как в журнале, 12 знаков |
-| `payouts[].block` | integer — высота блока Monero |
+| `payouts[].xmr` | string — as in the journal, 12 decimals |
+| `payouts[].block` | integer — Monero block height |
 | `total_atomic_units` | integer |
 | `total_xmr` | string |
-| `blocks_without_payout` | integer — блоки пула без вашей доли в PPLNS-окне |
+| `blocks_without_payout` | integer — pool blocks without a share of yours in the PPLNS window |

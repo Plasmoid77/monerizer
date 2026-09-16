@@ -1,7 +1,7 @@
-# Опционально, только Intel: отключает аппаратные префетчеры (MSR 0x1a4 = 0xf) —
-# то, что XMRig делал бы сам под root («MSR mod»). На Zeonux (Xeon E5 v4): +4,5 % hashrate.
-# Требует msr-tools. Установка: /etc/systemd/system/, systemctl enable --now moneroid-msr.service
-# Откат: systemctl disable --now moneroid-msr.service (ExecStop возвращает 0x0) или перезагрузка.
+# Optional, Intel only: disables the hardware prefetchers (MSR 0x1a4 = 0xf) —
+# what XMRig would do itself as root ("MSR mod"). On a Xeon E5 v4: +4.5 % hashrate.
+# Needs msr-tools. Install to /etc/systemd/system/, then systemctl enable --now moneroid-msr.service
+# Rollback: systemctl disable --now moneroid-msr.service (ExecStop writes 0x0) or reboot.
 [Unit]
 Description=RandomX MSR tweak for XMRig (Intel, disables HW prefetchers)
 Documentation=https://xmrig.com/docs/miner/randomx-optimization-guide
