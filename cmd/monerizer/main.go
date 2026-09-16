@@ -11,6 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/charmbracelet/colorprofile"
+
 	"github.com/Plasmoid77/monerizer/internal/config"
 	"github.com/Plasmoid77/monerizer/internal/status"
 	"github.com/Plasmoid77/monerizer/internal/systemd"
@@ -149,7 +151,7 @@ func cmdStatus(cfgPath string, args []string) int {
 			return exitCheck
 		}
 	} else {
-		printStatus(os.Stdout, snap)
+		printStatus(colorprofile.NewWriter(os.Stdout, os.Environ()), snap) // strips colour for pipes and NO_COLOR
 	}
 	if *check && snap.Health.Level != status.LevelOK {
 		return exitCheck

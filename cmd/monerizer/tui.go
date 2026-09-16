@@ -37,7 +37,7 @@ func cmdTUI(cfgPath string, args []string) int {
 		Now:       time.Now,
 		Monotonic: status.Monotonic,
 	}
-	if err := tui.Run(tui.New(cfg, c)); err != nil {
+	if err := tui.Run(tui.New(cfg, c, version)); err != nil {
 		fmt.Fprintln(os.Stderr, "tui:", err)
 		return exitCheck
 	}

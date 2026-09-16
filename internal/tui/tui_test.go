@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +17,7 @@ func model() Model {
 	cfg := &config.Config{}
 	cfg.Services.P2Pool, cfg.Services.XMRig = "p.service", "x.service"
 	cfg.UI.RefreshMs = 1000
-	return New(cfg, nil)
+	return New(cfg, nil, "test")
 }
 
 func press(m Model, keys ...string) Model {
@@ -117,3 +119,63 @@ func TestPayoutsView(t *testing.T) {
 		t.Fatal("esc must close payouts")
 	}
 }
+
+func TestRenderDashboardFillsScreen(t *testing.T) {
+	m := model()
+	m.width, m.height = 100, 30
+	f := func(v float64) *float64 { return &v }
+	n := func(v int64) *int64 { return &v }
+	s := &status.Snapshot{CollectedAt: time.Now(), Sources: map[string]status.Source{status.SrcXMRigSummary: {State: status.StateOK, AgeSeconds: f(1)}}}
+	s.Health.Level = "ok"
+	s.Services.P2Pool.Unit, s.Services.P2Pool.ActiveState, s.Services.P2Pool.SubState = "p.service", "active", "running"
+	s.Services.XMRig.Unit, s.Services.XMRig.ActiveState, s.Services.XMRig.SubState = "x.service", "active", "running"
+	s.XMRig.Hashrate10s, s.XMRig.Hashrate60s, s.XMRig.Hashrate15m, s.XMRig.HugepagesPercent = f(14402), f(14380), f(14355), f(100)
+	s.XMRig.Accepted, s.XMRig.Rejected = n(1234), n(1)
+	s.P2Pool.SidechainHeight, s.P2Pool.PeerMaxHeight, s.P2Pool.Hashrate15m, s.P2Pool.PoolHashrate = n(12345678), n(12345680), f(14350), f(8200000)
+	m.snap = s
+	m.record()
+	m.pay = &payouts.Report{Payouts: []payouts.Payout{{At: time.Now(), XMR: "0.000411000000", Block: 1}}, TotalXMR: "0.000411000000", BlocksWithout: 12}
+	raw := m.View().Content
+	if !strings.Contains(raw, "\x1b[38;2;255;102;0m") {
+		t.Fatal("dashboard must carry Monero orange")
+	}
+	v := regexp.MustCompile(`\x1b\[[0-9;]*m`).ReplaceAllString(raw, "")
+	if got := len(strings.Split(v, "\n")); got != m.height {
+		t.Fatalf("dashboard must fill %d rows, got %d", m.height, got)
+	}
+	for _, want := range []string{"monerizer test", "health OK", "14402", "1 payouts", "0.000411000000", "12 pool blocks", "0.175", "12345680", "active/running"} {
+		if !strings.Contains(v, want) {
+			t.Fatalf("dashboard lacks %q:\n%s", want, v)
+		}
+	}
+	if testing.Verbose() {
+		t.Log("\n" + v)
+	}
+}
+
+func TestPayoutFetchGuardAndCollectingRows(t *testing.T) {
+	m := model()
+	m.width, m.height = 80, 24
+	if got := len(strings.Split(m.View().Content, "\n")); got != 24 {
+		t.Fatalf("collecting screen must fill 24 rows, got %d", got)
+	}
+	next, cmd := m.Update(payTickMsg{})
+	m = next.(Model)
+	if cmd == nil || !m.paying {
+		t.Fatal("tick must start a fetch")
+	}
+	if m2 := press(m, "p"); m2.mode != modePayouts || !m2.paying {
+		t.Fatal("p must open payouts without a second fetch")
+	}
+	next, _ = m.Update(payoutsMsg{err: errTest})
+	m = next.(Model)
+	if m.paying || m.payErr == "" {
+		t.Fatal("fetch result must clear the guard and record the error")
+	}
+}
+
+type testErr struct{}
+
+func (testErr) Error() string { return "boom" }
+
+var errTest = testErr{}

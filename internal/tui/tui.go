@@ -22,6 +22,7 @@ const (
 	minWidth, minHeight = 80, 24
 	historyLen          = 1200
 	historySpan         = 10 * time.Minute
+	payoutsEvery        = time.Minute // journal grep for the dashboard summary
 )
 
 type mode int
@@ -60,6 +61,7 @@ type Model struct {
 	action     int
 	confirmOK  bool
 	collecting bool
+	paying     bool // a journal fetch for payouts is in flight
 	busy       bool
 	opResult   string
 	history    []point
@@ -67,6 +69,8 @@ type Model struct {
 	ascii      bool
 	pay        *payouts.Report
 	payErr     string
+	version    string
+	host       string
 }
 
 type snapshotMsg *status.Snapshot
@@ -77,10 +81,13 @@ type payoutsMsg struct {
 	rep *payouts.Report
 	err error
 }
+type payTickMsg struct{}
 
-func New(cfg *config.Config, c *status.Collector) Model {
+func New(cfg *config.Config, c *status.Collector, version string) Model {
 	lang := strings.ToUpper(os.Getenv("LC_ALL") + os.Getenv("LC_CTYPE") + os.Getenv("LANG"))
-	return Model{cfg: cfg, collector: c, run: systemd.ExecRunner, ascii: !strings.Contains(lang, "UTF-8") && !strings.Contains(lang, "UTF8")}
+	host, _ := os.Hostname()
+	return Model{cfg: cfg, collector: c, run: systemd.ExecRunner, version: version, host: host,
+		ascii: !strings.Contains(lang, "UTF-8") && !strings.Contains(lang, "UTF8")}
 }
 
 // Run starts the program; the caller checks for a TTY beforehand.
@@ -89,10 +96,16 @@ func Run(m Model) error {
 	return err
 }
 
-func (m Model) Init() tea.Cmd { return tea.Batch(m.collect(), m.tick()) }
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(m.collect(), m.tick(), (&m).fetchPayouts(), m.payTick())
+}
 
 func (m Model) tick() tea.Cmd {
 	return tea.Tick(time.Duration(m.cfg.UI.RefreshMs)*time.Millisecond, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+func (m Model) payTick() tea.Cmd {
+	return tea.Tick(payoutsEvery, func(time.Time) tea.Msg { return payTickMsg{} })
 }
 
 // refresh starts a collection unless one is already running (DATA-01).
@@ -121,7 +134,12 @@ func (m Model) control(verb string, units []string) tea.Cmd {
 	}
 }
 
-func (m Model) fetchPayouts() tea.Cmd {
+// fetchPayouts greps the journal unless a fetch is already running.
+func (m *Model) fetchPayouts() tea.Cmd {
+	if m.paying {
+		return nil
+	}
+	m.paying = true
 	run, unit := m.run, m.cfg.Services.P2Pool
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -164,10 +182,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logsMsg:
 		signal.Reset(os.Interrupt)
 		return m, m.refresh()
+	case payTickMsg:
+		return m, tea.Batch(m.fetchPayouts(), m.payTick())
 	case payoutsMsg:
-		m.pay, m.payErr = msg.rep, ""
+		m.paying, m.payErr = false, ""
 		if msg.err != nil {
-			m.payErr = msg.err.Error()
+			m.payErr = msg.err.Error() // keep the last good report on screen
+		} else {
+			m.pay = msg.rep
 		}
 		return m, nil
 	case tea.KeyPressMsg:
@@ -197,7 +219,7 @@ func (m Model) key(k string) (tea.Model, tea.Cmd) {
 		case "?":
 			m.mode = modeHelp
 		case "p":
-			m.mode, m.pay, m.payErr = modePayouts, nil, ""
+			m.mode = modePayouts
 			return m, m.fetchPayouts()
 		}
 	case modeTarget:
@@ -245,7 +267,6 @@ func (m Model) key(k string) (tea.Model, tea.Cmd) {
 		m.mode = modeDashboard
 	case modePayouts:
 		if k == "r" {
-			m.pay, m.payErr = nil, ""
 			return m, m.fetchPayouts()
 		}
 		m.mode = modeDashboard

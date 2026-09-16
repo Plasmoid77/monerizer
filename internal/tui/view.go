@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/Plasmoid77/monerizer/internal/ansi"
 	"github.com/Plasmoid77/monerizer/internal/status"
 )
 
@@ -21,32 +22,69 @@ func (m Model) render() string {
 	if m.width > 0 && (m.width < minWidth || m.height < minHeight) {
 		return m.compact()
 	}
-	var b strings.Builder
-	s := m.snap
-	if s == nil {
-		b.WriteString("monerizer  collecting…\n\n  q quit  r refresh  s services  l logs  p payouts  ? help\n")
-		return b.String()
+	w := m.width
+	if w == 0 {
+		w = minWidth
 	}
-	fmt.Fprintf(&b, "monerizer  %s  health: %s  (collected %s ago)\n\n", s.CollectedAt.Local().Format("15:04:05 MST"), strings.ToUpper(s.Health.Level), ago(s.CollectedAt))
-	fmt.Fprintf(&b, "  %-28s %-18s %-9s %-8s %s\n", "SERVICE", "STATE", "ENABLED", "UPTIME", "RESTARTS")
+	s := m.snap
+	title := " monerizer " + m.version + "   " + m.host
+	if s == nil {
+		return m.fit(ansi.Banner(pad(title+"   collecting…", w))+"\n", w)
+	}
+	var b strings.Builder
+	b.WriteString(ansi.Banner(pad(fmt.Sprintf("%s   %s   health %s   collected %s ago", title, s.CollectedAt.Local().Format("15:04:05 MST"), strings.ToUpper(s.Health.Level), ago(s.CollectedAt)), w)) + "\n\n")
+
+	fmt.Fprintf(&b, "  %s\n", ansi.Orange(fmt.Sprintf("%-28s %-18s %-9s %-8s %s", "SERVICE", "STATE", "ENABLED", "UPTIME", "RESTARTS")))
 	for _, sv := range []status.Service{s.Services.P2Pool, s.Services.XMRig} {
 		state := sv.ActiveState + "/" + sv.SubState
 		if sv.LoadState != "loaded" && sv.LoadState != "" {
 			state = sv.LoadState
 		}
-		fmt.Fprintf(&b, "  %-28s %-18s %-9s %-8s %s\n", sv.Unit, state, sv.EnabledState, dur(sv.UptimeSeconds), i64(sv.RestartCount))
+		fmt.Fprintf(&b, "  %-28s %s %-9s %-8s %s\n", sv.Unit, ansi.Unit(fmt.Sprintf("%-18s", state)), sv.EnabledState, dur(sv.UptimeSeconds), i64(sv.RestartCount))
 	}
+
 	x := s.XMRig
-	fmt.Fprintf(&b, "\n  XMRig %s  connected=%s  pool=%s\n", x.Version, boolStr(x.Connected), x.Pool)
-	fmt.Fprintf(&b, "  hashrate 10s %s  60s %s  15m %s H/s   accepted %s  rejected %s   hugepages %s%%\n",
-		f0(x.Hashrate10s), f0(x.Hashrate60s), f0(x.Hashrate15m), i64(x.Accepted), i64(x.Rejected), f0(x.HugepagesPercent))
-	fmt.Fprintf(&b, "  %s\n", m.sparkline(m.width-4))
+	bw := w - 50 // meter width: label + value + trailing text fit into the rest
+	if bw > 60 {
+		bw = 60
+	}
+	fmt.Fprintf(&b, "\n  %s %s   connected %s   pool %s   %s\n", ansi.Orange("XMRIG"), x.Version, boolStr(x.Connected), x.Pool, age(s, status.SrcXMRigSummary))
+	max := m.historyMax()
+	frac := 0.0
+	if x.Hashrate10s != nil && max > 0 {
+		frac = *x.Hashrate10s / max
+	}
+	fmt.Fprintf(&b, "  10s %s H/s  [%s] max %.0f\n", ansi.White(fmt.Sprintf("%8s", f0(x.Hashrate10s))), ansi.Bar(bw, frac, m.ascii), max)
+	rej := i64(x.Rejected)
+	if x.Rejected != nil && *x.Rejected > 0 {
+		rej = ansi.Red(rej)
+	}
+	fmt.Fprintf(&b, "  60s %s H/s   15m %s H/s   accepted %s   rejected %s\n", ansi.White(fmt.Sprintf("%8s", f0(x.Hashrate60s))), ansi.White(f0(x.Hashrate15m)), i64(x.Accepted), rej)
+	hp := 0.0
+	if x.HugepagesPercent != nil {
+		hp = *x.HugepagesPercent / 100
+	}
+	fmt.Fprintf(&b, "  hugepages %5s%%  [%s]\n", f0(x.HugepagesPercent), ansi.Bar(bw, hp, m.ascii))
+	fmt.Fprintf(&b, "  %s\n", m.sparkline(w-40))
+
 	p := s.P2Pool
-	fmt.Fprintf(&b, "\n  P2Pool  p2p %s conn (%s in)  zmq %s s ago  %s\n", i64(p.P2PConnections), i64(p.P2PIncomingConnections), f0(p.ZMQAgeSeconds), age(s, status.SrcP2PoolP2P))
-	fmt.Fprintf(&b, "  stratum %s H/s (15m)  shares %s  sidechain %s found / %s failed  %s\n", f0(p.Hashrate15m), i64(p.StratumShares), i64(p.SidechainSharesFound), i64(p.SidechainSharesFailed), age(s, status.SrcP2PoolStratum))
-	fmt.Fprintf(&b, "  network height %s  sidechain height %s  pool %s H/s  %s\n", i64(p.NetworkHeight), i64(p.SidechainHeight), f0(p.PoolHashrate), age(s, status.SrcP2PoolPool))
+	fmt.Fprintf(&b, "\n  %s   p2p %s conn (%s in)   zmq %s s ago   %s\n", ansi.Orange("P2POOL"), i64(p.P2PConnections), i64(p.P2PIncomingConnections), f0(p.ZMQAgeSeconds), age(s, status.SrcP2PoolP2P))
+	fmt.Fprintf(&b, "  stratum %s H/s (15m)  shares %s  sidechain %s found / %s failed  %s\n", ansi.White(f0(p.Hashrate15m)), i64(p.StratumShares), ansi.White(i64(p.SidechainSharesFound)), i64(p.SidechainSharesFailed), age(s, status.SrcP2PoolStratum))
+	sync := "peers —"
+	if p.SidechainHeight != nil && p.PeerMaxHeight != nil && *p.PeerMaxHeight > 0 {
+		sync = fmt.Sprintf("peers %d  [%s]", *p.PeerMaxHeight, ansi.Bar(20, float64(*p.SidechainHeight)/float64(*p.PeerMaxHeight), m.ascii))
+	}
+	fmt.Fprintf(&b, "  sidechain height %s / %s   network height %s   %s\n", ansi.White(i64(p.SidechainHeight)), sync, i64(p.NetworkHeight), age(s, status.SrcP2PoolNetwork))
+	share := "—"
+	if p.Hashrate15m != nil && p.PoolHashrate != nil && *p.PoolHashrate > 0 {
+		share = fmt.Sprintf("%.3f", *p.Hashrate15m / *p.PoolHashrate * 100)
+	}
+	fmt.Fprintf(&b, "  pool %s   your share ≈ %s %%   %s\n", hs(p.PoolHashrate), ansi.White(share), age(s, status.SrcP2PoolPool))
+
+	fmt.Fprintf(&b, "\n  %s   %s\n", ansi.Orange("PAYOUTS"), m.payoutsLine())
+
 	if m.prev != nil && m.prev.XMRig.Rejected != nil && x.Rejected != nil && *x.Rejected > *m.prev.XMRig.Rejected {
-		b.WriteString("\n  warning: rejected submissions increased since the previous sample\n") // H-04
+		b.WriteString("\n  " + ansi.Red("warning: rejected submissions increased since the previous sample") + "\n") // H-04
 	}
 	issues := 0
 	for _, i := range s.Health.Issues {
@@ -54,7 +92,7 @@ func (m Model) render() string {
 			if issues == 0 {
 				b.WriteString("\n")
 			}
-			fmt.Fprintf(&b, "  %-7s %-24s %s\n", i.Severity, i.Code, i.Message)
+			fmt.Fprintf(&b, "  %s %-24s %s\n", ansi.Severity(fmt.Sprintf("%-7s", i.Severity)), i.Code, i.Message)
 			issues++
 			if issues == 5 {
 				break
@@ -62,11 +100,66 @@ func (m Model) render() string {
 		}
 	}
 	if m.opResult != "" {
-		fmt.Fprintf(&b, "\n  %s\n", m.opResult)
+		fmt.Fprintf(&b, "\n  %s\n", ansi.White(m.opResult))
 	}
-	b.WriteString("\n" + m.dialog())
-	b.WriteString("\n  q quit  r refresh  s services  l logs  p payouts  ? help")
-	return b.String()
+	if d := m.dialog(); d != "" {
+		b.WriteString("\n" + d)
+	}
+	return m.fit(b.String(), w)
+}
+
+// fit pads or trims the body so the key bar sits on the last terminal row
+// (htop-style); over-long lines are clipped by the renderer.
+func (m Model) fit(body string, w int) string {
+	if m.height > 0 {
+		if lines := strings.Split(body, "\n"); len(lines) > m.height-1 {
+			body = strings.Join(lines[:m.height-1], "\n") + "\n"
+		}
+		for strings.Count(body, "\n") < m.height-1 {
+			body += "\n"
+		}
+	}
+	return body + ansi.Banner(pad(" q quit  r refresh  s services  l logs  p payouts  ? help", w))
+}
+
+// payoutsLine is the one-line dashboard summary of the journal payouts.
+func (m Model) payoutsLine() string {
+	switch {
+	case m.pay == nil && m.payErr != "":
+		return "error: " + m.payErr
+	case m.pay == nil:
+		return "loading…"
+	case len(m.pay.Payouts) == 0:
+		return fmt.Sprintf("%s payouts yet   %d pool blocks without a share of yours", ansi.White("no"), m.pay.BlocksWithout)
+	}
+	last := m.pay.Payouts[len(m.pay.Payouts)-1]
+	at := "unknown time"
+	if !last.At.IsZero() {
+		at = last.At.Local().Format("2006-01-02 15:04")
+	}
+	stale := ""
+	if m.payErr != "" {
+		stale = "   " + ansi.Red("stale: "+m.payErr)
+	}
+	return fmt.Sprintf("%s payouts   total %s XMR   last %s +%s   %d pool blocks without a share%s",
+		ansi.White(fmt.Sprint(len(m.pay.Payouts))), ansi.White(m.pay.TotalXMR), at, last.XMR, m.pay.BlocksWithout, stale)
+}
+
+func pad(s string, w int) string {
+	if n := w - len([]rune(s)); n > 0 {
+		return s + strings.Repeat(" ", n)
+	}
+	return s
+}
+
+func (m Model) historyMax() float64 {
+	max := 0.0
+	for _, p := range m.history {
+		if p.v != nil && *p.v > max {
+			max = *p.v
+		}
+	}
+	return max
 }
 
 func (m Model) dialog() string {
@@ -87,7 +180,7 @@ func (m Model) dialog() string {
 		}
 		return fmt.Sprintf("  %s %s?\n  %s   %s   (←/→ then Enter, Esc cancels)\n", actions[m.action], units, c, o)
 	case modeHelp:
-		return "  Keys: q/Ctrl-C quit (miners keep running)  r refresh  s start/stop/restart  l journalctl -f (Ctrl-C returns)  p payouts  Esc close\n  Colour carries no meaning; every state is written as text.\n"
+		return "  Keys: q/Ctrl-C quit (miners keep running)  r refresh  s start/stop/restart  l journalctl -f (Ctrl-C returns)  p payouts  Esc close\n  Colour (Monero orange/white) only highlights; every state is written as text. NO_COLOR disables it.\n"
 	case modePayouts:
 		return m.payoutsView()
 	}
@@ -173,20 +266,19 @@ func (m Model) sparkline(width int) string {
 			max = *p.v
 		}
 	}
-	var b strings.Builder
-	b.WriteString("10s [")
+	var b, g strings.Builder
 	for _, p := range pts {
 		switch {
 		case p.v == nil:
-			b.WriteRune(' ')
+			g.WriteRune(' ')
 		case *p.v == 0:
-			b.WriteRune('_')
+			g.WriteRune('_')
 		default:
 			i := int(*p.v / max * float64(len(ramp)-1))
-			b.WriteRune(ramp[i])
+			g.WriteRune(ramp[i])
 		}
 	}
-	b.WriteString(strings.Repeat(" ", width-len(pts)))
+	b.WriteString("10 min [" + ansi.Orange(g.String()) + strings.Repeat(" ", width-len(pts)))
 	fmt.Fprintf(&b, "] max %.0f H/s, %d samples", max, len(pts))
 	return b.String()
 }
@@ -200,9 +292,24 @@ func age(s *status.Snapshot, name string) string {
 		return "[" + src.State + "]"
 	}
 	if src.AgeSeconds == nil {
-		return "[age unknown]"
+		return "[" + src.State + "]" // live HTTP sources carry no file age
 	}
 	return "[" + src.State + " " + dur(src.AgeSeconds) + " old]"
+}
+
+// hs formats a large hashrate with an SI prefix for the pool line only.
+func hs(v *float64) string {
+	switch {
+	case v == nil:
+		return "— H/s"
+	case *v >= 1e9:
+		return fmt.Sprintf("%.2f GH/s", *v/1e9)
+	case *v >= 1e6:
+		return fmt.Sprintf("%.2f MH/s", *v/1e6)
+	case *v >= 1e4:
+		return fmt.Sprintf("%.1f kH/s", *v/1e3)
+	}
+	return fmt.Sprintf("%.0f H/s", *v)
 }
 
 func i64(v *int64) string {

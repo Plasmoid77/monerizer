@@ -17,13 +17,15 @@ XMRig ──Stratum──▶ P2Pool ──RPC/ZMQ──▶ Monero-нода
 | Команда | Что делает |
 |---|---|
 | `monerizer status [--json] [--check]` | Состояние служб, показатели XMRig/P2Pool, свежесть источников, health и причины. `--check` → код 1, если health не `ok` |
-| `monerizer tui` | Та же панель интерактивно: обновление, меню start/stop/restart с подтверждением, просмотр журнала |
+| `monerizer tui` | Живая панель во весь экран в духе `htop`: hashrate с полосами и sparkline, P2Pool, выплаты, проблемы; меню start/stop/restart с подтверждением, просмотр журнала, экран выплат (`p`) |
 | `monerizer start\|stop\|restart [all\|p2pool\|xmrig]` | Управление через systemd; после операции печатает фактическое состояние |
 | `monerizer logs [--follow] [--lines N] [target]` | `journalctl` по точным unit-именам |
-| `monerizer doctor [--json]` | 30 проверок: units, зависимости, права, API, свежесть, нода |
+| `monerizer doctor [--json]` | 31 проверка: units, зависимости, права, API, свежесть, нода |
 | `monerizer payouts [--json] [--since TIME]` | Выплаты из журнала P2Pool: время, сумма, блок, итог; адрес кошелька не выводится |
 | `monerizer node list` / `node select [--dry-run]` | Проба нод из `nodes.txt` (RPC latency, sync, ZMQ-порт); `select` переписывает `host/rpc-port/zmq-port` в `p2pool.conf` |
 | `monerizer config path`, `version` | Служебные |
+
+`status` и `tui` подсвечены цветами Monero (оранжевый/белый; красный — только проблемы); в конвейере или при `NO_COLOR=1` вывод остаётся чистым текстом, смысл всегда есть в тексте.
 
 Границы (намеренно): нет установщика бинарников, автообновлений, базы данных, web-UI, управления `monerod`, нескольких стеков, настройки ядра/MSR/hugepages. Полный перечень — в [ТЗ](docs/spec.md).
 
