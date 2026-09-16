@@ -250,7 +250,7 @@ func (r *runner) xmrigChecks() {
 	case p == nil:
 		r.add("XMRIG_HUGEPAGES", "xmrig", Skip, "hugepages not reported", "")
 	case *p < 100:
-		r.add("XMRIG_HUGEPAGES", "xmrig", Warn, fmt.Sprintf("hugepages %.0f%% (%d/%d)", *p, *s.XMRig.HugepagesAllocated, *s.XMRig.HugepagesTotal), "administrator: sysctl vm.nr_hugepages (about 1280 for RandomX) and restart xmrig")
+		r.add("XMRIG_HUGEPAGES", "xmrig", Warn, fmt.Sprintf("hugepages %.0f%% (%d/%d)", *p, *s.XMRig.HugepagesAllocated, *s.XMRig.HugepagesTotal), "administrator: reserve hugepages at boot (docs/install.md §6: vm.nr_hugepages, P2Pool light-mode) and restart xmrig")
 	default:
 		r.add("XMRIG_HUGEPAGES", "xmrig", Pass, "hugepages 100%", "")
 	}

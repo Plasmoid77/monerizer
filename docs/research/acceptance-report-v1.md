@@ -9,7 +9,10 @@
 | Arch Linux (ноутбук владельца, i7-8650U) | 261 | стенд, отчёты №1–2 | все команды, TUI, polkit, node select, start-limit-hit |
 | Debian 13 trixie (libvirt VM, UEFI, 2 vCPU, 6 GB) | 257 | `stand-install.sh` + те же файлы | install → doctor → start → SYNCHRONIZED за ~4 мин → health ok; polkit restart из группы; stop удаляет RuntimeDirectory; logs; `status --json`; TUI по ssh -t. Откат `stand-rollback.sh`, VM удалена |
 
-Вторая система с systemd 249 (D7) не проверялась: обе системы новее; поддержка 249 остаётся заявленной границей без доказательства.
+| Ubuntu 22.04.5 (libvirt VM, UEFI, 2 vCPU, 6 GB) | 249 | 2026-09-16, бинарник `82cdb11`, тот же `stand-install.sh` | install → doctor → start → SYNCHRONIZED → health ok (25 pass, 0 fail); stop удаляет RuntimeDirectory; logs; `status --json`. Особенность: polkit 0.105 без `rules.d` — JS-правило не ставится, управление через sudo; `stand-install.sh` теперь пропускает правило, если каталога нет |
+| Zeonux (Debian 13, 2×Xeon E5-2683 v4, 62 GB) | 257 | 2026-09-14…16, боевой хост владельца | 13,8 kH/s на 32 потоках, hugepages 100 %; аплинк фильтрует потоки > ~15 KB к нодам — работает через SOCKS5-туннель к ноутбуку (временное решение); см. §Zeonux |
+
+Граница systemd ≥ 249 подтверждена (D7 закрыт).
 
 ## Сценарии ТЗ §14
 
@@ -50,6 +53,14 @@
 
 ## Открытое
 
-- systemd 249 (Ubuntu 22.04) — не проверено.
 - A10 (timeout control), A20 (смена upstream-версии), A28 (drop-in) — не воспроизводились на живой системе.
 - XMRig `SHA256SUMS.sig` не проверялась подписью (ключ не импортировался).
+
+## Zeonux (2026-09-14 … 16)
+
+1. Первый запуск по инструкции выявил `/usr/bin/nologin` → `/usr/sbin/nologin` (Debian) — исправлено в документации и скрипте.
+2. С аплинка Zeonux `get_info` проходит, а `get_block_headers_range` (> ~15 KB) виснет к большинству нод; порт и TLS не влияют; `deb.debian.org` работает. Вывод — избирательная фильтрация на пути (высокая уверенность, не доказано напрямую). Проба нод теперь повторяет этот вызов.
+3. `xmr.privacy.cash:18083` принимает TCP, но не ZMQ (ZMTP-рукопожатие молчит) — проба теперь делает рукопожатие.
+4. P2Pool берёт первый DNS-ответ; у Zeonux есть маршрут IPv6 без выхода в мир → `EBADF`. `node select` пишет ответивший адрес (IPv4 первым).
+5. Обход: `socks5 = 127.0.0.1:1080` в `p2pool.conf` + `ssh -D` к ноутбуку за AmneziaVPN (transient unit `systemd-run`, ключ на ноутбуке `restrict,port-forwarding`). P2P, RPC и ZMQ идут через прокси. После удаления кэша изолированной цепочки P2Pool за 9 минут проверил 4 457 блоков и вышел на реальную mini. Добавлен `SIDECHAIN_BEHIND`/`SIDECHAIN_SYNC`.
+6. Инцидент: `ip link set mtu 1000` отключил IPv6 на eno1 и оборвал мой единственный путь; восстановление через роутер и перезагрузку.

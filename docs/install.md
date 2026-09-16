@@ -62,7 +62,7 @@ systemctl enable monerizer-p2pool.service monerizer-xmrig.service   # автоз
 install -o root -g root -m 0644 examples/polkit/50-monerizer.rules /etc/polkit-1/rules.d/
 ```
 
-Правило разрешает группе `monerizer` только `start/stop/restart` двух units. Другие units и другие действия по-прежнему требуют аутентификации.
+Правило разрешает группе `monerizer` только `start/stop/restart` (и `reset-failed`) двух units. Другие units и другие действия по-прежнему требуют аутентификации. Нужен polkit ≥ 0.106 (JS-правила, каталог `/etc/polkit-1/rules.d`): Debian 12+/Arch — да; Ubuntu 22.04 (polkit 0.105) — нет, там управление через `sudo`.
 
 ## 6. Hugepages и MSR (административно, необязательно)
 
